@@ -1,0 +1,87 @@
+# ---------------------------------------------------------------------------
+# jdoeth-site
+#
+#   nginx  :80  ->  web :8000  ->  sqlite file on the shared `sitedata` volume
+#   db     maintenance + backup sidecar on the same volume
+#
+# `docker compose up -d --build` and open http://localhost:8080
+# ---------------------------------------------------------------------------
+
+services:
+
+  web:
+    build: ./web
+    container_name: jdoeth-web
+    restart: unless-stopped
+    user: "10001:10001"
+    environment:
+      DATA_DIR: /data
+      UPLOAD_DIR: /data/UploadedImages
+      RESULT_DIR: /data/results
+      DB_PATH: /data/db/site.db
+      CONTENT_DIR: /app/content
+      OWNER_NAME: ${OWNER_NAME:-Jonathan Doeth}
+      OWNER_EMAIL: ${OWNER_EMAIL:-jonathan.doeth@gmail.com}
+      GITHUB_URL: ${GITHUB_URL:-https://github.com/torvalds}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-12582912}
+      MAX_IMAGE_DIM: ${MAX_IMAGE_DIM:-1600}
+      JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-90}
+      MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-2}
+      RETENTION_HOURS: ${RETENTION_HOURS:-24}
+      STATS_MASK_IPS: ${STATS_MASK_IPS:-false}
+      STATS_TOKEN: ${STATS_TOKEN:-}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1/32}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - sitedata:/data
+      # Read-only bind mount: edit web/content/resume.md on the host and the
+      # change is live on the next request. No rebuild.
+      - ./web/content:/app/content:ro
+    # A sort is a CPU-bound Python loop. Without a ceiling one visitor with a
+    # large image can starve everything else on the box.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.50"
+          memory: 1g
+    networks: [sitenet]
+    # service_healthy, not service_started: the db sidecar chowns the shared
+    # volume, and web runs unprivileged. Starting early means an unwritable /data.
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    build: ./db
+    container_name: jdoeth-db
+    restart: unless-stopped
+    environment:
+      BACKUP_INTERVAL_SECONDS: ${BACKUP_INTERVAL_SECONDS:-86400}
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - sitedata:/data
+    networks: [sitenet]
+
+  nginx:
+    build: ./nginx
+    container_name: jdoeth-nginx
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      # nginx serves these paths itself; requests for them never reach Python.
+      - ./web/app/static:/srv/static:ro
+      - sitedata:/srv/data:ro
+    networks: [sitenet]
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  sitedata:
+    driver: local
+
+networks:
+  sitenet:
+    driver: bridge
