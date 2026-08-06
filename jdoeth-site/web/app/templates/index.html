@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{ owner }}{% endblock %}
+
+{% block chrome %}
+<header class="topbar topbar--floating">
+  <a class="wordmark" href="/">
+    <span class="wordmark__mark" aria-hidden="true"></span>
+    <span class="wordmark__text">JD</span>
+  </a>
+  <a class="topbar__mail" href="mailto:{{ email }}">Get in touch</a>
+</header>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="hero__scenery" aria-hidden="true">
+    <img src="/static/img/landscape.jpg" alt="">
+    <span class="hero__scrim"></span>
+  </div>
+
+  <div class="hero__inner">
+    <p class="hero__eyebrow">Systems engineer &middot; Portland, OR</p>
+    <h1 class="hero__name">{{ owner }}</h1>
+
+    <!-- Signature element: a strip of pixels that sorts itself once, on load.
+         Built by JS from a shuffled hue ramp; see landing.js. -->
+    <div class="spectrum" id="spectrum" role="img"
+         aria-label="A strip of colour that sorts itself by lightness"></div>
+
+    <p class="hero__blurb">
+      I build small tools that do one thing precisely. Lately that means taking
+      other people's images apart one scanline at a time.
+    </p>
+
+    <ul class="linkcluster">
+      <li><a class="chip" href="/resume"><span class="chip__glyph">CV</span>Resume</a></li>
+      <li><a class="chip" href="mailto:{{ email }}"><span class="chip__glyph">@</span>Email</a></li>
+      <li><a class="chip" href="/projects"><span class="chip__glyph">/</span>Projects</a></li>
+      <li><a class="chip" href="/github" rel="noopener"><span class="chip__glyph">&lt;&gt;</span>GitHub</a></li>
+      <li><a class="chip" href="/stats"><span class="chip__glyph">#</span>Stats</a></li>
+    </ul>
+  </div>
+</section>
+
+<section class="studio" id="pixelsort-me">
+  <div class="studio__grid">
+
+    <article class="card card--portrait">
+      <div class="card__frame">
+        <div class="portrait" id="portraitStage">
+          <img id="portraitBase" src="/static/img/portrait.jpg"
+               alt="Portrait photograph of {{ owner }}" width="640" height="800">
+          <img id="portraitResult" class="portrait__result" alt="" width="640" height="800" hidden>
+          <div class="portrait__veil" id="portraitVeil" hidden>
+            <span class="spinner" aria-hidden="true"></span>
+            <p id="portraitStatus">Sorting…</p>
+          </div>
+        </div>
+      </div>
+      <div class="card__foot">
+        <button class="btn btn--primary" id="pixelsortMe" type="button">Pixelsort Me!</button>
+        <button class="btn btn--ghost" id="resetPortrait" type="button" hidden>Show original</button>
+      </div>
+    </article>
+
+    <article class="card card--controls">
+      <header class="card__head">
+        <h2>Sort the portrait</h2>
+        <p>Two knobs, wired to the same <code>pixelsort</code> binary the project page uses.</p>
+      </header>
+
+      <div class="field">
+        <label class="field__label" for="angle">
+          Angle
+          <output class="field__value" id="angleOut">0&deg;</output>
+        </label>
+        <input class="slider" type="range" id="angle" name="angle"
+               min="0" max="360" step="1" value="0">
+        <p class="field__hint">Maps to <code>-a</code>. 90&deg; runs the sort down the image instead of across it.</p>
+      </div>
+
+      <div class="field">
+        <label class="field__label" for="sorting">Sorting function</label>
+        <div class="select">
+          <select id="sorting" name="sorting_function">
+            {% for fn in sorting_functions %}
+            <option value="{{ fn.value }}">{{ fn.label }} — {{ fn.blurb }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <p class="field__hint">Maps to <code>-s</code>.</p>
+      </div>
+
+      <div class="readout" id="portraitReadout" hidden>
+        <span class="readout__label">Ran</span>
+        <code id="portraitCommand"></code>
+        <span class="readout__meta" id="portraitTiming"></span>
+      </div>
+
+      <p class="card__note">
+        Want every parameter instead of two?
+        <a href="/projects/pixelsort">Open the full wrapper &rarr;</a>
+      </p>
+    </article>
+
+  </div>
+</section>
+
+<section class="strip">
+  <div class="strip__inner">
+    <div>
+      <h2 class="strip__title">Pixelsort Wrapper</h2>
+      <p class="strip__body">
+        A front end for <a href="https://github.com/satyarth/pixelsort" rel="noopener external">satyarth/pixelsort</a>.
+        Upload anything, choose an interval and sorting function, and read the exact
+        command before you commit to it.
+      </p>
+    </div>
+    <a class="btn btn--primary" href="/projects/pixelsort">Open the wrapper</a>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/landing.js" defer></script>
+{% endblock %}

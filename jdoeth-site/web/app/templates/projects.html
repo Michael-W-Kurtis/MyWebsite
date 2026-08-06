@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Projects — {{ owner }}{% endblock %}
+
+{% block content %}
+<section class="sheet sheet--wide">
+  <header class="sheet__head">
+    <h1>Projects</h1>
+    <p>Things that are finished enough to hand to someone else.</p>
+  </header>
+
+  <div class="cardgrid">
+    {% for project in projects %}
+    <a class="card card--project" href="{{ project.href }}">
+      <span class="badge badge--{{ project.status }}">{{ project.status }}</span>
+      <h2 class="card__title">{{ project.title }}</h2>
+      <p class="card__tagline">{{ project.tagline }}</p>
+      <p class="card__body">{{ project.body }}</p>
+      <ul class="taglist">
+        {% for tag in project.tags %}<li>{{ tag }}</li>{% endfor %}
+      </ul>
+      <span class="card__cta">Open <span aria-hidden="true">&rarr;</span></span>
+    </a>
+    {% endfor %}
+
+    <div class="card card--placeholder">
+      <h2 class="card__title">Next one goes here</h2>
+      <p class="card__body">
+        Append a dict to <code>catalogue</code> in
+        <code>web/app/routes/pages.py</code>. The grid picks it up with no other changes.
+      </p>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Stats — {{ owner }}{% endblock %}
+
+{% block content %}
+<section class="sheet sheet--wide">
+  {% if locked %}
+  <header class="sheet__head">
+    <h1>Stats are private</h1>
+    <p>This page needs an access token. Append <code>?token=…</code> to the URL.</p>
+  </header>
+  {% else %}
+
+  <header class="sheet__head">
+    <h1>Visitors</h1>
+    <p>Every request to a page on this site, grouped by source address.</p>
+  </header>
+
+  <div class="tiles">
+    <div class="tile">
+      <span class="tile__value">{{ summary.unique_ips }}</span>
+      <span class="tile__label">Unique addresses</span>
+    </div>
+    <div class="tile">
+      <span class="tile__value">{{ summary.total_visits }}</span>
+      <span class="tile__label">Page views</span>
+    </div>
+    <div class="tile">
+      <span class="tile__value">{{ summary.sorts_completed }}</span>
+      <span class="tile__label">Sorts completed</span>
+    </div>
+    <div class="tile">
+      <span class="tile__value tile__value--small" data-utc="{{ summary.latest or '' }}">
+        {{ summary.latest or '—' }}
+      </span>
+      <span class="tile__label">Most recent visit</span>
+    </div>
+  </div>
+
+  {% if masked %}
+  <div class="notice">
+    Addresses are masked. Set <code>STATS_MASK_IPS=false</code> to show them in full.
+  </div>
+  {% endif %}
+
+  {% if rows %}
+  <div class="tablewrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">Source address</th>
+          <th scope="col">Most recent visit</th>
+          <th scope="col" class="num">Visits</th>
+          <th scope="col">Last page</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td class="mono">{{ row.ip }}</td>
+          <td class="mono" data-utc="{{ row.last_seen }}">{{ row.last_seen }}</td>
+          <td class="num"><span class="count">{{ row.visit_count }}</span></td>
+          <td class="mono muted">{{ row.last_path }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty">
+    <p><strong>No visits recorded yet.</strong></p>
+    <p>Load any page on this site and it will appear here.</p>
+  </div>
+  {% endif %}
+
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Timestamps are stored as UTC ISO-8601. Render them in the reader's timezone.
+  for (const el of document.querySelectorAll('[data-utc]')) {
+    const raw = el.dataset.utc;
+    if (!raw) continue;
+    const d = new Date(raw);
+    if (!isNaN(d)) {
+      el.textContent = d.toLocaleString(undefined, {
+        dateStyle: 'medium', timeStyle: 'short'
+      });
+    }
+  }
+</script>
+{% endblock %}

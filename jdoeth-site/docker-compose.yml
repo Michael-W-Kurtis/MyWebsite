@@ -20,7 +20,7 @@ services:
       RESULT_DIR: /data/results
       DB_PATH: /data/db/site.db
       CONTENT_DIR: /app/content
-      OWNER_NAME: ${OWNER_NAME:-Michael Kurtis}
+      OWNER_NAME: ${OWNER_NAME:-Michael W Kurtis}
       OWNER_EMAIL: ${OWNER_EMAIL:-mwmkurtis@gmail.com}
       GITHUB_URL: ${GITHUB_URL:-https://github.com/Michael-W-Kurtis}
       MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-12582912}

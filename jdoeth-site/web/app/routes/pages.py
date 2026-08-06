@@ -64,7 +64,7 @@ async def resume_pdf():
     if not RESUME_PDF.exists():
         return RedirectResponse("/resume", status_code=302)
     return FileResponse(RESUME_PDF, media_type="application/pdf",
-                        filename="7-22-26 Michael Kurtis Resume.pdf")
+                        filename="Jonathan-Doeth-Resume.pdf")
 
 
 @router.get("/projects", response_class=HTMLResponse)

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ owner }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ owner }} — engineer, and the person responsible for the Pixelsort Wrapper.{% endblock %}">
+  <link rel="stylesheet" href="/static/css/landing.css">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+</head>
+<body class="page-{{ page }}">
+  {% block chrome %}
+  <header class="topbar">
+    <a class="wordmark" href="/">
+      <span class="wordmark__mark" aria-hidden="true"></span>
+      <span class="wordmark__text">{{ owner }}</span>
+    </a>
+    <nav class="topnav" aria-label="Primary">
+      <a href="/resume" {% if page == 'resume' %}aria-current="page"{% endif %}>Resume</a>
+      <a href="/projects" {% if page in ('projects', 'pixelsort') %}aria-current="page"{% endif %}>Projects</a>
+      <a href="/stats" {% if page == 'stats' %}aria-current="page"{% endif %}>Stats</a>
+      <a href="{{ github_url }}" rel="noopener external">GitHub</a>
+    </nav>
+  </header>
+  {% endblock %}
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <p>&copy; {{ year }} {{ owner }}</p>
+    <p class="footer__links">
+      <a href="mailto:{{ email }}">{{ email }}</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="/github" rel="noopener">GitHub</a>
+      <span aria-hidden="true">&middot;</span>
+      <a href="/stats">Stats</a>
+    </p>
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

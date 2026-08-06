@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Resume — {{ owner }}{% endblock %}
+
+{% block content %}
+<section class="sheet">
+  {% if resume_missing %}
+  <div class="notice notice--warn">
+    <strong>No resume file found.</strong>
+    Create <code>web/content/resume.md</code> and reload. Nothing else needs to change.
+  </div>
+  {% endif %}
+
+  <div class="sheet__actions">
+    {% if has_pdf %}<a class="btn btn--ghost" href="/resume.pdf">Download PDF</a>{% endif %}
+    <button class="btn btn--ghost" type="button" onclick="window.print()">Print</button>
+  </div>
+
+  <article class="prose">
+    {{ resume_html|safe }}
+  </article>
+</section>
+{% endblock %}

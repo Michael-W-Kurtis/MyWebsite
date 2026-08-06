@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixelsort Wrapper — {{ owner }}</title>
+  <meta name="description" content="A browser front end for satyarth/pixelsort. Upload an image, choose an interval and sorting function, read the command, run it.">
+  <link rel="stylesheet" href="/static/css/y2k.css">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="masthead">
+  <a class="backlink" href="/projects">&larr; projects</a>
+  <h1 class="logo">
+    <span class="logo__word">PIXEL</span><span class="logo__word logo__word--alt">SORT</span>
+    <span class="logo__tag">wrapper v1.0</span>
+  </h1>
+  <button class="btn btn--help" type="button" id="helpOpen">? HOW TO</button>
+</header>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>satyarth/pixelsort &nbsp;&#9670;&nbsp; interval functions &nbsp;&#9670;&nbsp; sorting functions &nbsp;&#9670;&nbsp; threshold &nbsp;&#9670;&nbsp; waves &nbsp;&#9670;&nbsp; edges &nbsp;&#9670;&nbsp; </span>
+    <span>satyarth/pixelsort &nbsp;&#9670;&nbsp; interval functions &nbsp;&#9670;&nbsp; sorting functions &nbsp;&#9670;&nbsp; threshold &nbsp;&#9670;&nbsp; waves &nbsp;&#9670;&nbsp; edges &nbsp;&#9670;&nbsp; </span>
+  </div>
+</div>
+
+<main class="workbench">
+
+  <!-- ============ LEFT: input ============ -->
+  <section class="panel panel--drop">
+    <h2 class="panel__title">1 &middot; Load a picture</h2>
+
+    <div class="dropzone" id="dropzone" tabindex="0" role="button"
+         aria-label="Drop an image here, or press Enter to choose a file">
+      <div class="dropzone__inner">
+        <div class="dropzone__disc" aria-hidden="true"></div>
+        <p class="dropzone__lead">DROP IMAGE HERE</p>
+        <p class="dropzone__sub">or</p>
+        <span class="btn btn--chrome" id="pickButton">SELECT FILE</span>
+        <p class="dropzone__fine">
+          jpg &middot; png &middot; webp &middot; bmp &middot; gif &middot; tiff &nbsp;|&nbsp;
+          max {{ max_mb }} MB &nbsp;|&nbsp; resized to {{ max_dim }} px on the long edge
+        </p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+
+    <p class="filename" id="fileName" hidden></p>
+
+    <div class="param param--file" data-param="interval_file" hidden>
+      <label class="param__label" for="intervalFile">
+        Interval image <span class="flag">-f</span>
+      </label>
+      <input type="file" id="intervalFile" accept="image/*" class="fileinput">
+      <p class="param__hint">Black and white. Resized to match your input automatically.</p>
+    </div>
+  </section>
+
+  <!-- ============ MIDDLE: controls ============ -->
+  <section class="panel panel--controls">
+    <h2 class="panel__title">2 &middot; Set the dials</h2>
+
+    <div class="param" data-param="interval_function">
+      <label class="param__label" for="intervalFunction">
+        Interval function <span class="flag">-i</span>
+      </label>
+      <div class="selectwrap">
+        <select id="intervalFunction">
+          {% for fn in spec.intervalFunctions %}
+          <option value="{{ fn.value }}" {% if fn.value == spec.defaults.interval_function %}selected{% endif %}>
+            {{ fn.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="param__hint" id="intervalBlurb"></p>
+    </div>
+
+    <div class="param" data-param="sorting_function">
+      <label class="param__label" for="sortingFunction">
+        Sorting function <span class="flag">-s</span>
+      </label>
+      <div class="selectwrap">
+        <select id="sortingFunction">
+          {% for fn in spec.sortingFunctions %}
+          <option value="{{ fn.value }}" {% if fn.value == spec.defaults.sorting_function %}selected{% endif %}>
+            {{ fn.label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <p class="param__hint" id="sortingBlurb"></p>
+    </div>
+
+    <hr class="rule">
+
+    {% for key in ['angle', 'randomness', 'lower_threshold', 'upper_threshold', 'clength'] %}
+    {% set c = spec.controls[key] %}
+    <div class="param" data-param="{{ key }}">
+      <label class="param__label" for="{{ key }}">
+        {{ c.label }} <span class="flag">{{ c.flag }}</span>
+        <output class="param__value" id="{{ key }}Out"></output>
+      </label>
+      <input class="dial" type="range" id="{{ key }}"
+             min="{{ c.min }}" max="{{ c.max }}" step="{{ c.step }}"
+             value="{{ spec.defaults[key] }}" data-unit="{{ c.unit }}">
+      <p class="param__hint">{{ c.hint }}</p>
+    </div>
+    {% endfor %}
+
+    <p class="hiddennote" id="hiddenNote" hidden></p>
+  </section>
+
+  <!-- ============ RIGHT: previews ============ -->
+  <section class="panel panel--previews">
+    <h2 class="panel__title">3 &middot; Compare</h2>
+
+    <div class="viewer">
+      <figure class="viewport">
+        <figcaption class="viewport__cap">ORIGINAL</figcaption>
+        <div class="viewport__box" id="originalBox">
+          <p class="viewport__empty">nothing loaded</p>
+          <img id="originalImg" alt="The image you uploaded" hidden>
+        </div>
+      </figure>
+
+      <figure class="viewport">
+        <figcaption class="viewport__cap viewport__cap--alt">RESULT</figcaption>
+        <div class="viewport__box" id="resultBox">
+          <p class="viewport__empty">not sorted yet</p>
+          <img id="resultImg" alt="The sorted image" hidden>
+          <div class="working" id="working" hidden>
+            <div class="working__bar"><span></span></div>
+            <p id="workingText">SORTING…</p>
+          </div>
+        </div>
+        <a class="download" id="downloadLink" href="#" download hidden>&darr; save result</a>
+      </figure>
+    </div>
+  </section>
+
+  <!-- ============ FULL WIDTH: run ============ -->
+  <section class="panel panel--run">
+    <h2 class="panel__title">4 &middot; Run it</h2>
+
+    <div class="terminal">
+      <div class="terminal__bar">
+        <span class="terminal__dot"></span><span class="terminal__dot"></span><span class="terminal__dot"></span>
+        <span class="terminal__name">command that will run</span>
+      </div>
+      <pre class="terminal__body"><code id="commandLine">python -m pixelsort ./UploadedImages/&lt;your-file&gt;.png -o ./results/&lt;out&gt;.png</code></pre>
+    </div>
+
+    <p class="alert" id="alert" hidden></p>
+
+    <button class="btn btn--sort" type="button" id="sortButton" disabled>
+      <span class="btn__label">SORT</span>
+      <span class="btn__sub">load an image first</span>
+    </button>
+  </section>
+
+</main>
+
+<footer class="colophon">
+  <p>
+    Pixel sorting by <a href="https://github.com/satyarth/pixelsort" rel="noopener external">satyarth/pixelsort</a>,
+    MIT licensed. This page is only a front end &mdash; every sort is that program,
+    run with the arguments shown above. Original technique after
+    Kim Asendorf's ASDFPixelSort.
+  </p>
+  <p><a href="/">&larr; back to {{ owner }}</a></p>
+</footer>
+
+<!-- ============ HOW TO ============ -->
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel">
+    <header class="modal__head">
+      <h2 id="helpTitle">HOW TO</h2>
+      <button class="btn btn--x" type="button" data-close aria-label="Close">&times;</button>
+    </header>
+    <div class="modal__body">
+      <ol>
+        <li><strong>Load a picture.</strong> Drag it onto the box or press SELECT FILE. Big images are shrunk to {{ max_dim }} px on the long edge, because the sort is a per-pixel Python loop and a full phone photo would take a minute.</li>
+        <li><strong>Pick an interval function.</strong> This decides <em>where</em> each sorted run starts and stops. <code>threshold</code> is the classic look. <code>none</code> sorts whole rows and melts the image completely.</li>
+        <li><strong>Pick a sorting function.</strong> This decides <em>what order</em> pixels land in. <code>hue</code> gives rainbow smears; <code>lightness</code> keeps the subject readable.</li>
+        <li><strong>Watch the dials appear and disappear.</strong> Only the controls that affect your current interval function are shown. Threshold sliders mean nothing to <code>waves</code>, so they go away.</li>
+        <li><strong>Read the command,</strong> then press SORT. What you see is what runs.</li>
+      </ol>
+      <p class="modal__tip">
+        <strong>To copy the original Asendorf effect:</strong> sort once at
+        <code>-a 90</code>, save the result, upload it again, and sort at <code>-a 0</code>.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script id="pixelsortSpec" type="application/json">{{ spec|tojson }}</script>
+<script src="/static/js/pixelsort.js" defer></script>
+</body>
+</html>
