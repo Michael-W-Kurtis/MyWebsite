@@ -42,6 +42,31 @@ MAX_DECODE_PIXELS = _int("MAX_DECODE_PIXELS", 50_000_000)  # decompression-bomb 
 JOB_TIMEOUT_SECONDS = _int("JOB_TIMEOUT_SECONDS", 90)
 MAX_CONCURRENT_JOBS = _int("MAX_CONCURRENT_JOBS", 2)
 
+# --- Batch pixelsorter ------------------------------------------------------
+# Cells render at the input's own resolution. This cap only stops accidents:
+# at 3200 px a 16-cell batch is ~1.8 min with 4 workers; a 24 MP phone photo
+# would be ~25 min serial and 2.5 GB resident per process. 0 disables the cap.
+BATCH_MAX_EDGE = _int("BATCH_MAX_EDGE", 3200)
+
+# The grid displays these, not the full-size PNGs. Sixteen 6.4 MP images is
+# 410 MB of decoded bitmap and will kill the tab.
+BATCH_VIEW_EDGE = _int("BATCH_VIEW_EDGE", 900)
+
+# Its own semaphore, deliberately not shared with the single-image wrapper: a
+# running batch must not lock the wrapper out for ten minutes.
+# Capped by RAM rather than cores (~0.71 GB per process at 3200 px).
+BATCH_CONCURRENCY = _int("BATCH_CONCURRENCY", max(2, min((os.cpu_count() or 2) - 1, 4)))
+
+# A 6.4 MP sort takes ~27 s and a 22 MP one ~95 s, so the wrapper's 90 s ceiling
+# would kill legitimate cells. Keep nginx proxy_read_timeout above this.
+BATCH_JOB_TIMEOUT = _int("BATCH_JOB_TIMEOUT", 600)
+
+# Batch output is finished artwork, not scratch, so it outlives the wrapper's
+# 24 h sweep. 0 means keep forever.
+BATCH_RETENTION_HOURS = _int("BATCH_RETENTION_HOURS", 168)
+
+BATCH_DIR = Path(os.getenv("BATCH_DIR", DATA_DIR / "batches"))
+
 # --- Retention --------------------------------------------------------------
 # Uploads and results are disposable. Anything older than this is swept on boot
 # and hourly thereafter, so the volume cannot grow without bound.
@@ -62,5 +87,5 @@ TRUSTED_PROXIES = [
     if cidr.strip()
 ]
 
-for _d in (UPLOAD_DIR, RESULT_DIR, DB_PATH.parent):
+for _d in (UPLOAD_DIR, RESULT_DIR, BATCH_DIR, DB_PATH.parent):
     _d.mkdir(parents=True, exist_ok=True)

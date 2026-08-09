@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import config, db, pixelsort_spec
+from .. import batch_spec, config, db, pixelsort_spec
 
 log = logging.getLogger("site.pages")
 router = APIRouter()
@@ -73,6 +73,16 @@ async def projects(request: Request):
     # own page, one route. Cards render from this list.
     catalogue = [
         {
+            "slug": "pixelsort-batch",
+            "title": "Pixelsort Batch",
+            "tagline": "Nine or sixteen full-size renders at once",
+            "body": "Sweep two parameters across a grid and see the whole range "
+                    "at full resolution, instead of guessing one render at a time.",
+            "tags": ["Python", "Parameter sweep", "Glitch art"],
+            "href": "/projects/pixelsort-batch",
+            "status": "live",
+        },
+        {
             "slug": "pixelsort",
             "title": "Pixelsort Wrapper",
             "tagline": "A browser front end for satyarth/pixelsort",
@@ -95,6 +105,27 @@ async def pixelsort_page(request: Request):
     ctx["max_dim"] = config.MAX_IMAGE_DIM
     ctx["max_mb"] = config.MAX_UPLOAD_BYTES // (1024 * 1024)
     return templates.TemplateResponse(request, "pixelsort.html", ctx)
+
+
+@router.get("/projects/pixelsort-batch", response_class=HTMLResponse)
+async def pixelsort_batch_page(request: Request):
+    ctx = _base_context("pixelsort-batch")
+    ctx["spec"] = pixelsort_spec.spec_for_client()
+    ctx["batch"] = {
+        "gridSizes": list(batch_spec.GRID_SIZES),
+        "matrix": {
+            "rowValues": batch_spec.MATRIX_DEFAULT["row_values"],
+            "colValues": batch_spec.MATRIX_DEFAULT["col_values"],
+        },
+        "intensityAxes": batch_spec.INTENSITY_AXES,
+        "ladders": batch_spec.LADDERS,
+        "sweeps": batch_spec.SWEEPS,
+        "concurrency": config.BATCH_CONCURRENCY,
+        "maxEdge": config.BATCH_MAX_EDGE,
+        "secondsPerMegapixel": batch_spec.SECONDS_PER_MEGAPIXEL,
+    }
+    ctx["max_mb"] = config.MAX_UPLOAD_BYTES // (1024 * 1024)
+    return templates.TemplateResponse(request, "batch.html", ctx)
 
 
 @router.get("/github")

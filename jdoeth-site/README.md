@@ -86,6 +86,27 @@ so swapping the file invalidates the cache automatically.
 Append one dict to `catalogue` in `web/app/routes/pages.py`. The grid picks it up.
 If it needs a page of its own, add a route and a template beside `pixelsort.html`.
 
+### Tune the batch grids
+
+Every ladder, axis assignment and sweep range lives in one file:
+`web/app/pixelsort_spec.py`'s sibling, **`web/app/batch_spec.py`**. Edit it and
+rebuild, or — to change them without a rebuild — drop a JSON file at
+`web/content/batch_ladders.json`. That directory is bind-mounted, so a restart
+picks it up. Only the keys you supply are overridden:
+
+```json
+{
+  "ladders": { "clength": { "4": [5, 25, 90, 400] } },
+  "matrix":  { "row_values": { "4": ["random", "waves", "edges", "none"] } }
+}
+```
+
+Two things in that file are easy to break by accident, and both are commented
+in place: `randomness` ladders run **descending** (it is the percentage of
+intervals *not* sorted, so raising it does less), and the `edges` and `threshold`
+ladders deliberately stop short of the range's end because the effect saturates
+there — spacing them evenly would waste two of four columns on near-duplicates.
+
 ### Query the database
 
 ```bash
@@ -102,6 +123,46 @@ docker compose stop web
 docker compose exec db sh -c "gunzip -c /data/db/backups/site-<STAMP>.db.gz > /data/db/site.db"
 docker compose start web
 ```
+
+---
+
+## The two pixelsort apps
+
+| | `/projects/pixelsort` | `/projects/pixelsort-batch` |
+|---|---|---|
+| Job | Dial in one image precisely | Find out what you want |
+| Input cap | `MAX_IMAGE_DIM` 1600 px | `BATCH_MAX_EDGE` 3200 px, or `0` for none |
+| Output | One render | 9 or 16 renders, each at the input's own size |
+| Feels like | Seconds | Tens of seconds to minutes |
+
+The batch app has three grid modes:
+
+- **Matrix** — every interval function crossed with every sorting function. The
+  widest view of the range, and where to start if you don't know what you want.
+- **Intensity** — lock one interval and sorting function; two parameters then ramp
+  so the effect grows toward the bottom right. Top left is the subtlest render.
+- **Sweep** — one parameter stepped across every cell, for dialling in a number.
+
+Three implementation notes worth knowing before changing anything:
+
+**Renders are full size; the grid displays derivatives.** Each cell writes a
+full-resolution PNG *and* a 900 px WebP. The grid points at the WebP, because
+sixteen 6.4 MP images is 410 MB of decoded bitmap and kills the tab. This is not
+the same as sorting small — the PNG is a genuine full-resolution sort, and the
+derivative is that same image viewed smaller. Downloads and the lightbox always
+serve the PNG.
+
+**There is no job queue, deliberately.** `runner.result_path_for()` names outputs
+by a hash of parameters plus input, so a finished cell already sits on disk under a
+deterministic name and re-requesting it is a cache hit. Reload the page, or come
+back to its `?batch=` URL later, and completed cells reappear instantly while the
+rest resume. A job table would have bought nothing else.
+
+**`random` and `waves` are not reproducible.** pixelsort seeds nothing, so those
+interval functions build a fresh layout on every run and cells using them are not a
+perfectly controlled comparison. The UI says so on affected grids rather than hiding
+it. Seeding would mean importing pixelsort in-process instead of running the CLI,
+which would break the rule that the command shown is the command run.
 
 ---
 
@@ -122,10 +183,12 @@ STATS_TOKEN=<long-random> # /stats then requires ?token=<long-random>
 **2. There is no TLS.** nginx listens on plain HTTP. Terminate TLS at a load
 balancer, or add certbot and a `listen 443 ssl` block.
 
-**3. Sorting is unauthenticated CPU.** nginx rate-limits `/api/sort` to 10/min per
-address and the app caps concurrency at 2 with a 90s timeout, but a distributed
-caller can still keep both workers busy. If the site gets attention, put it behind
-CloudFront or Cloudflare.
+**3. Sorting is unauthenticated CPU, and the batch app is 16x that.** nginx
+rate-limits `/api/sort` to 10/min, `/api/batch` to 4/min and cell fetches to
+120/min, and each app has its own concurrency semaphore so neither can starve the
+other. It is still the most expensive thing on the site by an order of magnitude.
+**`/api/batch` is the first endpoint to put behind auth** if this ever faces real
+traffic, and `BATCH_MAX_EDGE` is the single number that bounds the damage.
 
 `TRUSTED_PROXIES` should stay narrow. It lists the source ranges allowed to set
 `X-Real-IP`. Widen it to `0.0.0.0/0` and any client can forge its own address into
@@ -247,6 +310,16 @@ Called out because I chose these, you didn't:
 | Interval images auto-resized | pixelsort requires an exact size match and errors out otherwise. Nearest-neighbour, to preserve hard black/white edges. | `routes/api.py` |
 | Resume is Markdown | Easier to keep current than HTML, and prints cleanly. | — |
 | Placeholder identity | "Portland, OR", the blurb, and the resume are invented. Nothing in the code depends on them. | `.env`, `resume.md`, `templates/index.html` |
+
+### Verified (batch app)
+
+Plan generation across all three modes and both grid sizes; every generated cell
+producing a command the CLI accepts; the corner-first fill order; nine- and
+sixteen-cell batches rendering end to end in a browser; cache hits on re-request;
+resume after a full page reload restoring all completed cells; the zip containing
+full-size PNGs plus a `commands.txt`; the lightbox, copy-command and keyboard
+navigation; cells taking the source's aspect ratio so nothing is cropped; and the
+measured effect ladders confirmed monotonic in the direction the UI claims.
 
 ### Verified
 
