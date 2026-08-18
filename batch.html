@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pixelsort Batch — {{ owner }}</title>
+  <meta name="description" content="Sweep two pixelsort parameters across a grid and render every cell at full resolution.">
+  <link rel="stylesheet" href="/static/css/y2k.css">
+  <link rel="stylesheet" href="/static/css/batch.css">
+  <link rel="icon" href="/static/img/favicon.svg" type="image/svg+xml">
+</head>
+<body>
+
+<div class="scanlines" aria-hidden="true"></div>
+
+<header class="masthead">
+  <a class="backlink" href="/projects">&larr; projects</a>
+  <h1 class="logo">
+    <span class="logo__word">BATCH</span><span class="logo__word logo__word--alt">SORT</span>
+    <span class="logo__tag">full-size grid</span>
+  </h1>
+  <button class="btn btn--help" type="button" id="helpOpen">? HOW TO</button>
+</header>
+
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>every cell rendered at input resolution &nbsp;&#9670;&nbsp; no previews &nbsp;&#9670;&nbsp; matrix &nbsp;&#9670;&nbsp; sweep &nbsp;&#9670;&nbsp; intensity &nbsp;&#9670;&nbsp; </span>
+    <span>every cell rendered at input resolution &nbsp;&#9670;&nbsp; no previews &nbsp;&#9670;&nbsp; matrix &nbsp;&#9670;&nbsp; sweep &nbsp;&#9670;&nbsp; intensity &nbsp;&#9670;&nbsp; </span>
+  </div>
+</div>
+
+<main class="bench">
+
+  <!-- ============ setup ============ -->
+  <section class="panel panel--setup">
+    <h2 class="panel__title">1 &middot; Load a picture</h2>
+
+    <div class="dropzone dropzone--compact" id="dropzone" tabindex="0" role="button"
+         aria-label="Drop an image here, or press Enter to choose a file">
+      <div class="dropzone__inner">
+        <div class="dropzone__disc" aria-hidden="true"></div>
+        <p class="dropzone__lead">DROP IMAGE HERE</p>
+        <span class="btn btn--chrome" id="pickButton">SELECT FILE</span>
+        <p class="dropzone__fine">
+          rendered at its own size &middot; capped at {{ batch.maxEdge or "no cap" }}{% if batch.maxEdge %} px{% endif %}
+          &middot; max {{ max_mb }} MB
+        </p>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </div>
+    <p class="filename" id="fileName" hidden></p>
+  </section>
+
+  <!-- ============ grid config ============ -->
+  <section class="panel panel--config">
+    <h2 class="panel__title">2 &middot; Choose the grid</h2>
+
+    <div class="modes" role="radiogroup" aria-label="Grid mode">
+      <button class="mode is-on" type="button" data-mode="matrix" role="radio" aria-checked="true">
+        <span class="mode__name">MATRIX</span>
+        <span class="mode__desc">every interval function crossed with every sorting function</span>
+      </button>
+      <button class="mode" type="button" data-mode="intensity" role="radio" aria-checked="false">
+        <span class="mode__name">INTENSITY</span>
+        <span class="mode__desc">lock one look, ramp the effect toward the bottom right</span>
+      </button>
+      <button class="mode" type="button" data-mode="sweep" role="radio" aria-checked="false">
+        <span class="mode__name">SWEEP</span>
+        <span class="mode__desc">one parameter, every cell a step along it</span>
+      </button>
+    </div>
+
+    <div class="param">
+      <label class="param__label" for="gridSize">Grid size</label>
+      <div class="selectwrap">
+        <select id="gridSize">
+          <option value="4" selected>4 &times; 4 &mdash; 16 cells</option>
+          <option value="3">3 &times; 3 &mdash; 9 cells</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- intensity + sweep need a locked look -->
+    <div class="param" data-when="intensity sweep">
+      <label class="param__label" for="intervalFunction">
+        Interval function <span class="flag">-i</span>
+      </label>
+      <div class="selectwrap">
+        <select id="intervalFunction">
+          {% for fn in spec.intervalFunctions %}
+          <option value="{{ fn.value }}" {% if fn.value == 'threshold' %}selected{% endif %}>{{ fn.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="param" data-when="intensity sweep">
+      <label class="param__label" for="sortingFunction">
+        Sorting function <span class="flag">-s</span>
+      </label>
+      <div class="selectwrap">
+        <select id="sortingFunction">
+          {% for fn in spec.sortingFunctions %}
+          <option value="{{ fn.value }}">{{ fn.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="param" data-when="sweep">
+      <label class="param__label" for="sweepParam">Parameter to sweep</label>
+      <div class="selectwrap">
+        <select id="sweepParam">
+          {% for key, cfg in batch.sweeps.items() %}
+          <option value="{{ key }}">{{ cfg.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="axispreview" id="axisPreview"></div>
+
+    <details class="constants">
+      <summary>Held constant in every cell</summary>
+      <div class="constants__body">
+        {% for key in ['angle', 'randomness', 'lower_threshold', 'upper_threshold', 'clength'] %}
+        {% set c = spec.controls[key] %}
+        <div class="param param--tight" data-const="{{ key }}">
+          <label class="param__label" for="k_{{ key }}">
+            {{ c.label }} <span class="flag">{{ c.flag }}</span>
+            <output class="param__value" id="k_{{ key }}Out"></output>
+          </label>
+          <input class="dial" type="range" id="k_{{ key }}"
+                 min="{{ c.min }}" max="{{ c.max }}" step="{{ c.step }}"
+                 value="{{ spec.defaults[key] }}" data-unit="{{ c.unit }}">
+        </div>
+        {% endfor %}
+        <p class="param__hint">
+          Anything an axis varies overrides these. Anything the chosen interval
+          function ignores is dropped from the command.
+        </p>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ launch ============ -->
+  <section class="panel panel--launch">
+    <h2 class="panel__title">3 &middot; Render</h2>
+
+    <div class="preflight" id="preflight">
+      <p class="preflight__line" id="preflightText">Load an image to see the estimate.</p>
+      <p class="preflight__sub" id="preflightSub">
+        {{ batch.concurrency }} worker{{ '' if batch.concurrency == 1 else 's' }} &middot;
+        every cell at the input's own resolution
+      </p>
+    </div>
+
+    <p class="alert" id="alert" hidden></p>
+
+    <button class="btn btn--sort" type="button" id="startButton" disabled>
+      <span class="btn__label">RENDER GRID</span>
+      <span class="btn__sub">load an image first</span>
+    </button>
+
+    <div class="runbar" id="runbar" hidden>
+      <div class="runbar__track"><span id="runbarFill"></span></div>
+      <p class="runbar__text" id="runbarText">0 / 0</p>
+      <button class="btn btn--cancel" type="button" id="cancelButton">STOP</button>
+    </div>
+
+    <div class="done" id="done" hidden>
+      <a class="btn btn--chrome" id="zipLink" href="#" download>&darr; DOWNLOAD ALL (.zip)</a>
+      <span class="done__note" id="doneNote"></span>
+    </div>
+  </section>
+
+  <!-- ============ results ============ -->
+  <section class="panel panel--grid" id="gridPanel" hidden>
+    <h2 class="panel__title" id="gridTitle">4 &middot; Results</h2>
+    <p class="constbar" id="constBar"></p>
+    <p class="disclose" id="disclose" hidden></p>
+    <div class="gridwrap" id="gridWrap"></div>
+  </section>
+
+</main>
+
+<footer class="colophon">
+  <p>
+    Pixel sorting by <a href="https://github.com/satyarth/pixelsort" rel="noopener external">satyarth/pixelsort</a>,
+    MIT licensed. Every cell is that program, run once per cell with the arguments
+    shown, at the resolution you uploaded.
+  </p>
+  <p>
+    <a href="/projects/pixelsort">&larr; single-image wrapper</a> &nbsp;&middot;&nbsp;
+    <a href="/">{{ owner }}</a>
+  </p>
+</footer>
+
+<!-- ============ lightbox ============ -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Full size render" hidden>
+  <div class="lightbox__backdrop" data-close></div>
+  <div class="lightbox__panel">
+    <header class="lightbox__head">
+      <span class="lightbox__title" id="lightboxTitle"></span>
+      <button class="btn btn--x" type="button" data-close aria-label="Close">&times;</button>
+    </header>
+    <div class="lightbox__stage"><img id="lightboxImg" alt=""></div>
+    <footer class="lightbox__foot">
+      <code id="lightboxCmd"></code>
+      <span class="lightbox__actions">
+        <button class="btn btn--chrome btn--sm" type="button" id="copyCmd">COPY COMMAND</button>
+        <a class="btn btn--chrome btn--sm" id="lightboxDl" href="#" download>&darr; PNG</a>
+      </span>
+    </footer>
+  </div>
+</div>
+
+<!-- ============ how to ============ -->
+<div class="modal" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__panel">
+    <header class="modal__head">
+      <h2 id="helpTitle">HOW TO</h2>
+      <button class="btn btn--x" type="button" data-close aria-label="Close">&times;</button>
+    </header>
+    <div class="modal__body">
+      <ol>
+        <li><strong>This renders at full size.</strong> Nine or sixteen complete images, not previews. A 3 MP photo takes about a minute for sixteen cells; a large one takes several. The estimate before you press render is calculated from your image, not a guess.</li>
+        <li><strong>MATRIX</strong> crosses every interval function with every sorting function. Start here if you don't know what you want &mdash; it shows the widest range in one screen.</li>
+        <li><strong>INTENSITY</strong> locks one interval and sorting function, then ramps two parameters so the effect grows toward the bottom right. Top left is the subtlest render, bottom right the most extreme.</li>
+        <li><strong>SWEEP</strong> steps a single parameter across every cell. Use it once you know the look and want to dial in one number.</li>
+        <li><strong>Corners render first</strong>, then the diagonal, then the rest &mdash; so you see the extremes of both axes early and can stop a batch that isn't working.</li>
+        <li><strong>Click any cell</strong> for the full-resolution image and its exact command. The grid shows scaled-down copies so the browser doesn't have to hold sixteen full-size bitmaps at once; the download is always the real thing.</li>
+      </ol>
+      <p class="modal__tip">
+        <strong>Reloading is safe.</strong> Finished cells are cached on disk, so
+        coming back to this page's address brings them straight back and only the
+        unfinished ones re-render.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script id="pixelsortSpec" type="application/json">{{ spec|tojson }}</script>
+<script id="batchSpec" type="application/json">{{ batch|tojson }}</script>
+<script src="/static/js/batch.js" defer></script>
+</body>
+</html>
