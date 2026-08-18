@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import config, db, runner
-from .routes import api, batch, pages
+from .routes import api, batch, games, pages
 from .tracking import VisitTrackingMiddleware
 
 logging.basicConfig(
@@ -62,6 +62,7 @@ app.mount("/batches", StaticFiles(directory=str(config.BATCH_DIR)), name="batche
 app.include_router(pages.router)
 app.include_router(api.router)
 app.include_router(batch.router)
+app.include_router(games.router)
 
 _templates = Jinja2Templates(directory=str(config.BASE_DIR / "templates"))
 

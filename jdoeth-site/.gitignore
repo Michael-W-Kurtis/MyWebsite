@@ -3,3 +3,8 @@ data/
 __pycache__/
 *.pyc
 web/content/resume.pdf
+
+# Unity builds run to tens of megabytes. A binary that size in normal git
+# history is permanent and slows every future clone. Uncomment to keep them out,
+# or set up git-lfs if you want them versioned.
+# web/content/games/*/build/

@@ -42,6 +42,10 @@ MAX_DECODE_PIXELS = _int("MAX_DECODE_PIXELS", 50_000_000)  # decompression-bomb 
 JOB_TIMEOUT_SECONDS = _int("JOB_TIMEOUT_SECONDS", 90)
 MAX_CONCURRENT_JOBS = _int("MAX_CONCURRENT_JOBS", 2)
 
+# Unity WebGL builds live here, bind-mounted read-only. Dropping a game in needs
+# no rebuild: the registry rescans on every request.
+GAMES_DIR = Path(os.getenv("GAMES_DIR", CONTENT_DIR / "games"))
+
 # --- Batch pixelsorter ------------------------------------------------------
 # Cells render at the input's own resolution. This cap only stops accidents:
 # at 3200 px a 16-cell batch is ~1.8 min with 4 workers; a 24 MP phone photo

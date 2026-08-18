@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import batch_spec, config, db, pixelsort_spec
+from .. import batch_spec, config, db, games as games_registry, pixelsort_spec
 
 log = logging.getLogger("site.pages")
 router = APIRouter()
@@ -93,6 +93,19 @@ async def projects(request: Request):
             "status": "live",
         },
     ]
+    # Games are discovered from disk, so dropping a build into
+    # web/content/games/<slug>/ makes a card appear with no code change.
+    for game in games_registry.list_games():
+        catalogue.append({
+            "slug": game["slug"],
+            "title": game["title"],
+            "tagline": game["tagline"] or "Unity WebGL",
+            "body": game["description"] or "A browser game.",
+            "tags": game["tags"],
+            "href": game["href"],
+            "status": "live" if game["playable"] else "setup",
+        })
+
     ctx = _base_context("projects")
     ctx["projects"] = catalogue
     return templates.TemplateResponse(request, "projects.html", ctx)
