@@ -4,3 +4,7 @@ data/
 **/__pycache__
 *.pyc
 README.md
+
+# Unity builds reach the container through the web/content bind mount, so there
+# is no reason to bake tens of megabytes into the image as well.
+web/content/games/*/build/

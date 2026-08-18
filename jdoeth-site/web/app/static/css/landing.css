@@ -746,3 +746,184 @@ code { font-family: var(--mono); font-size: .875em; }
   body { background: #fff; }
   .prose { border: 0; box-shadow: none; padding: 0; }
 }
+
+/* ============================================================
+   Unity game pages
+   Same soft-UI shell as the rest of the site, but the canvas
+   sits on a dark stage: a game wants its surround to recede,
+   and a light grey frame around a lit canvas reads as a bug.
+   ============================================================ */
+
+.gamehead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.gamehead__title {
+  margin: 0 0 6px;
+  font-size: clamp(1.9rem, 4vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.035em;
+}
+.gamehead__tagline { margin: 0; color: var(--muted); font-size: 1.02rem; }
+.gamehead__meta { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.pill {
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: .76rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+.pill--quiet { background: var(--surface-3); color: var(--muted); }
+
+.stage {
+  background: var(--stage-bg, #0d1524);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--e-3);
+  overflow: hidden;
+}
+
+.stage__frame {
+  position: relative;
+  width: 100%;
+  background: var(--stage-bg, #0d1524);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+/* Unity's own canvas is injected here; force it to fill rather than sit at its
+   authored pixel size, which would letterbox oddly on high-DPI screens. */
+.stage__canvas,
+.stage__canvas canvas,
+#unity-canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  background: var(--stage-bg, #0d1524);
+}
+.stage__canvas { position: absolute; inset: 0; }
+
+.stage__overlay,
+.stage__loading,
+.stage__error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--stage-bg, #0d1524) 88%, transparent);
+  z-index: 2;
+}
+.stage__panel { display: grid; justify-items: center; gap: 14px; }
+
+.stage__name {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  color: #fff;
+}
+.stage__hint {
+  margin: 0;
+  max-width: 42ch;
+  font-size: .84rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, .68);
+}
+
+.bar {
+  width: min(280px, 60vw);
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .16);
+  overflow: hidden;
+}
+.bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width .25s var(--ease);
+}
+
+.stage__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 15px;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+}
+.stage__dims { font-family: var(--mono); font-size: .78rem; color: var(--muted); }
+.btn--tight { padding: 8px 15px; font-size: .87rem; }
+
+.gameinfo {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 22px;
+  margin-top: 26px;
+}
+.gameinfo__block {
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--e-1);
+}
+.gameinfo__block h2 {
+  margin: 0 0 10px;
+  font-size: .78rem;
+  font-weight: 660;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.gameinfo__block p { margin: 0; color: var(--ink-2); font-size: .94rem; }
+
+.controls { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; }
+.controls dt {
+  font-family: var(--mono);
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+  padding: 2px 8px;
+  border-radius: 6px;
+  justify-self: start;
+}
+.controls dd { margin: 0; font-size: .9rem; color: var(--ink-2); }
+
+.gamefoot { margin-top: 24px; font-size: .87rem; color: var(--muted); }
+
+.gamegrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 22px;
+}
+.card--game { position: relative; display: block; padding: 0; overflow: hidden;
+              color: inherit; text-decoration: none;
+              transition: transform .22s var(--ease), box-shadow .22s var(--ease); }
+.card--game:hover { transform: translateY(-3px); box-shadow: var(--e-3); color: inherit; }
+@media (prefers-reduced-motion: reduce) { .card--game:hover { transform: none; } }
+.card__cover { aspect-ratio: 16 / 10; background: #0d1524; display: grid; place-items: center; }
+.card__cover img { width: 100%; height: 100%; object-fit: cover; }
+.card__cover span { font-family: var(--mono); font-size: .74rem; color: rgba(255,255,255,.45); }
+.card--game .card__inner { padding: 20px 22px 22px; }
+
+@media (max-width: 640px) {
+  .gamehead { flex-direction: column; align-items: flex-start; }
+}
+
+.badge--warn, .badge--setup { background: var(--warn-soft); color: var(--warn); }

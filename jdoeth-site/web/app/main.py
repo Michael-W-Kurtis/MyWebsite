@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import config, db, runner
-from .routes import api, pages
+from .routes import api, batch, games, pages
 from .tracking import VisitTrackingMiddleware
 
 logging.basicConfig(
@@ -32,6 +32,7 @@ async def _sweeper():
     while True:
         try:
             runner.sweep_old_files()
+            runner.sweep_batches()
         except Exception:
             log.exception("Sweep failed")
         await asyncio.sleep(3600)
@@ -41,6 +42,7 @@ async def _sweeper():
 async def lifespan(app: FastAPI):
     db.init_db()
     runner.sweep_old_files()
+    runner.sweep_batches()
     task = asyncio.create_task(_sweeper())
     log.info("Ready. db=%s uploads=%s", config.DB_PATH, config.UPLOAD_DIR)
     yield
@@ -55,9 +57,12 @@ app.mount("/static", StaticFiles(directory=str(config.BASE_DIR / "static")), nam
 # reach the app. The mounts exist so `uvicorn app.main:app` alone is fully usable.
 app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
 app.mount("/results", StaticFiles(directory=str(config.RESULT_DIR)), name="results")
+app.mount("/batches", StaticFiles(directory=str(config.BATCH_DIR)), name="batches")
 
 app.include_router(pages.router)
 app.include_router(api.router)
+app.include_router(batch.router)
+app.include_router(games.router)
 
 _templates = Jinja2Templates(directory=str(config.BASE_DIR / "templates"))
 

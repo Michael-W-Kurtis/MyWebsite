@@ -28,6 +28,13 @@ services:
       JOB_TIMEOUT_SECONDS: ${JOB_TIMEOUT_SECONDS:-90}
       MAX_CONCURRENT_JOBS: ${MAX_CONCURRENT_JOBS:-2}
       RETENTION_HOURS: ${RETENTION_HOURS:-24}
+      GAMES_DIR: /app/content/games
+      BATCH_DIR: /data/batches
+      BATCH_MAX_EDGE: ${BATCH_MAX_EDGE:-3200}
+      BATCH_VIEW_EDGE: ${BATCH_VIEW_EDGE:-900}
+      BATCH_CONCURRENCY: ${BATCH_CONCURRENCY:-4}
+      BATCH_JOB_TIMEOUT: ${BATCH_JOB_TIMEOUT:-600}
+      BATCH_RETENTION_HOURS: ${BATCH_RETENTION_HOURS:-168}
       STATS_MASK_IPS: ${STATS_MASK_IPS:-false}
       STATS_TOKEN: ${STATS_TOKEN:-}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.16.0.0/12,10.0.0.0/8,192.168.0.0/16,127.0.0.1/32}
@@ -39,11 +46,13 @@ services:
       - ./web/content:/app/content:ro
     # A sort is a CPU-bound Python loop. Without a ceiling one visitor with a
     # large image can starve everything else on the box.
+    # Raised for the batch app: four concurrent full-size sorts need the cores to
+    # be worth having, and each process peaks near 0.71 GB at 3200 px.
     deploy:
       resources:
         limits:
-          cpus: "1.50"
-          memory: 1g
+          cpus: "4.00"
+          memory: 4g
     networks: [sitenet]
     # service_healthy, not service_started: the db sidecar chowns the shared
     # volume, and web runs unprivileged. Starting early means an unwritable /data.

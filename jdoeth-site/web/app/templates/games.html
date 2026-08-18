@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Games — {{ owner }}{% endblock %}
+
+{% block content %}
+<section class="sheet sheet--wide">
+  <header class="sheet__head">
+    <h1>Games</h1>
+    <p>Unity WebGL builds, running in the browser.</p>
+  </header>
+
+  {% if games %}
+  <div class="gamegrid">
+    {% for game in games %}
+    <a class="card card--game" href="{{ game.href }}">
+      <div class="card__cover">
+        {% if game.has_cover %}
+        <img src="/games/{{ game.slug }}/assets/cover.png" alt="{{ game.title }}">
+        {% else %}
+        <span>{{ game.slug }}</span>
+        {% endif %}
+      </div>
+      <div class="card__inner">
+        {% if not game.playable %}
+        <span class="badge badge--warn">no build</span>
+        {% endif %}
+        <h2 class="card__title">{{ game.title }}</h2>
+        {% if game.tagline %}<p class="card__tagline">{{ game.tagline }}</p>{% endif %}
+        <ul class="taglist">
+          {% for tag in game.tags %}<li>{{ tag }}</li>{% endfor %}
+        </ul>
+        <span class="card__cta">{{ "Play" if game.playable else "Finish setup" }} <span aria-hidden="true">&rarr;</span></span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p><strong>No games installed yet.</strong></p>
+    <p>
+      Create a folder under <code>{{ games_dir }}/</code> named for the game, put
+      the Unity output in a <code>build/</code> subfolder inside it, and it appears
+      here on the next page load. No rebuild, no restart.
+    </p>
+    <p>
+      There is a <code>README.md</code> in that directory with the exact layout
+      and the file list for both Unity generations.
+    </p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -27,7 +27,17 @@ for _cidr in config.TRUSTED_PROXIES:
 
 # Paths whose traffic is recorded. Static assets, health checks and API calls are
 # excluded so the counts mean "pages a human looked at" rather than "HTTP requests".
-TRACKED_PATHS = {"/", "/resume", "/projects", "/projects/pixelsort", "/stats", "/github"}
+TRACKED_PATHS = {"/", "/resume", "/projects", "/projects/pixelsort",
+                 "/projects/pixelsort-batch", "/games", "/stats", "/github"}
+
+
+def _is_tracked(path: str) -> bool:
+    """Pages only. A Unity build is dozens of asset requests per visit, and
+    counting those would swamp the stats with one visitor's page load."""
+    if path in TRACKED_PATHS:
+        return True
+    # /games/<slug> yes; /games/<slug>/build/... no.
+    return path.startswith("/games/") and path.count("/") == 2
 
 
 def _is_trusted(addr: str) -> bool:
@@ -63,7 +73,7 @@ class VisitTrackingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         response = await call_next(request)
         path = request.url.path
-        if request.method == "GET" and path in TRACKED_PATHS and response.status_code < 400:
+        if request.method == "GET" and _is_tracked(path) and response.status_code < 400:
             try:
                 db.record_visit(
                     client_ip(request), path, request.headers.get("user-agent")
