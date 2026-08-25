@@ -40,7 +40,18 @@ docker compose down -v        # stop, delete the volume (uploads, stats, backups
 ### Without Docker
 
 ```bash
-cd web
+./run.sh                              # binds 0.0.0.0:8000
+PORT=9000 ./run.sh                    # or override via environment
+./run.sh --host 127.0.0.1             # extra args pass through to uvicorn
+```
+
+It binds `0.0.0.0` by default so the site is reachable by hostname from other
+machines on the LAN. Pass `--host 127.0.0.1` if you want loopback only.
+
+Or by hand — note the `cd web`, which is not optional:
+
+```bash
+cd web                      # app/ lives here, NOT in the repo root
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 DATA_DIR=./data uvicorn app.main:app --reload --port 8000
@@ -48,6 +59,33 @@ DATA_DIR=./data uvicorn app.main:app --reload --port 8000
 
 http://localhost:8000. Everything works except nginx's static serving and rate
 limiting — the app falls back to serving those paths itself.
+
+**`ModuleNotFoundError: No module named 'app'`** means uvicorn was started from
+the wrong directory. It resolves `app.main:app` against the current directory,
+and `app/` is inside `web/`, one level below the repo root. Either `cd web`
+first, or point uvicorn at it explicitly:
+
+```bash
+uvicorn app.main:app --app-dir web --reload --port 8000
+```
+
+### Upgrading an existing copy
+
+Extract the new version into a **fresh directory** and move your own files
+across, rather than rsyncing the new tree over the old one:
+
+```bash
+tar xzf jdoeth-site.tar.gz -C ~/new
+cp -r ~/old/web/content/games/*    ~/new/jdoeth-site/web/content/games/
+cp    ~/old/web/content/resume.md  ~/new/jdoeth-site/web/content/
+cp    ~/old/.env                   ~/new/jdoeth-site/   2>/dev/null || true
+```
+
+Layering with `rsync` merges two trees without removing anything, so files that
+moved or were renamed survive in both places — and if the two trees are rooted at
+different depths you end up with two copies of the application, one of them
+stale. Your data (`sitedata` volume, or `web/data/` outside Docker) is separate
+from the source and is not affected either way.
 
 ---
 

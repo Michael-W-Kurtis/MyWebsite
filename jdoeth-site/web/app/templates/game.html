@@ -18,12 +18,90 @@
 
   {% if not game.playable %}
   <div class="notice notice--warn">
-    <strong>This game has no runnable build yet.</strong>
-    {{ game.problem }}
-    <br>Drop the Unity output into
-    <code>web/content/games/{{ game.slug }}/build/</code> and reload — see the
-    README in <code>web/content/games/</code> for the exact file list.
+    <strong>This build won't run yet.</strong> {{ game.problem }}
   </div>
+
+  {% if game.audit %}
+  <div class="audit">
+    {% if game.audit.renames %}
+    <div class="audit__block">
+      <h2>Here, but under the wrong name</h2>
+      <p class="audit__note">
+        These match what the manifest wants by type but not by name, so they are
+        the right files under the wrong name. Unity built this as
+        <code>{{ game.audit.manifest_stem }}</code> and records that inside the
+        manifest; on disk they say <code>{{ game.audit.disk_stem }}</code>.
+        Rename them back — Unity build files should never be renamed:
+      </p>
+      <pre class="fixcmd"><code>cd web/content/games/{{ game.slug }}/build
+{% for r in game.audit.renames %}mv '{{ r.from }}' '{{ r.to }}'
+{% endfor %}</code></pre>
+      <p class="audit__note">
+        Editing the manifest instead would also work, but renaming the files
+        restores what Unity actually built.
+      </p>
+    </div>
+    {% endif %}
+
+    {% if game.audit.absent %}
+    <div class="audit__block">
+      <h2>Not in <code>build/</code> under any name</h2>
+      <ul class="filelist filelist--bad">
+        {% for name in game.audit.absent %}<li>{{ name }}</li>{% endfor %}
+      </ul>
+      <p class="audit__note">
+        No file of the matching type is present, so this is not a naming problem.
+        The game cannot start without these — they have to come from the original
+        host, or from a rebuild of the Unity project.
+      </p>
+    </div>
+    {% endif %}
+
+    {% if game.audit.empty %}
+    <div class="audit__block">
+      <h2>Present but zero bytes</h2>
+      <ul class="filelist filelist--bad">
+        {% for name in game.audit.empty %}<li>{{ name }}</li>{% endfor %}
+      </ul>
+      <p class="audit__note">A truncated copy. Fetch these again from the original host.</p>
+    </div>
+    {% endif %}
+
+    {% for hint in game.audit.hints %}
+    <div class="audit__block audit__block--hint"><p>{{ hint }}</p></div>
+    {% endfor %}
+
+    <div class="audit__cols">
+      <div>
+        <h2>Manifest expects</h2>
+        <ul class="filelist">
+          {% for name in game.audit.expected %}
+          {% if name in game.audit.absent %}<li class="is-bad">{{ name }}</li>
+          {% elif name in game.audit.missing %}<li class="is-renamed">{{ name }} <em>wrong name on disk</em></li>
+          {% else %}<li class="is-ok">{{ name }}</li>{% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+      <div>
+        <h2>Actually in <code>build/</code></h2>
+        <ul class="filelist">
+          {% for name in game.audit.present %}<li>{{ name }}</li>{% endfor %}
+        </ul>
+        <p class="audit__note">{{ (game.audit.total_bytes / 1024) | round | int }} KB total</p>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="audit">
+    <div class="audit__block audit__block--hint">
+      <p>Drop the Unity output into
+        <code>web/content/games/{{ game.slug }}/build/</code> and reload. The
+        README in <code>web/content/games/</code> lists the exact files for each
+        Unity version.</p>
+    </div>
+  </div>
+  {% endif %}
+
   {% else %}
 
   <div class="stage" id="stage" style="--stage-bg: {{ game.background }};">

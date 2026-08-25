@@ -77,6 +77,12 @@ def detect_encoding(path: Path) -> str | None:
         return "gzip"
     if head.startswith(WASM_MAGIC) or head.startswith(UNITY_DATA_MAGIC):
         return None
+    # A .unityweb that is plain text is an already-decompressed framework file.
+    # Browsers hand you the decoded bytes when you "Save as" from the network
+    # panel, so a build recovered that way is a mix of compressed and plain
+    # files. Serving one of these as brotli would break it.
+    if head and all(32 <= b < 127 or b in (9, 10, 13) for b in head):
+        return None
     if path.suffix.lower() == ".unityweb":
         # Not gzip, not a bare payload. Brotli carries no signature, and an
         # uncompressed .unityweb is not a thing Unity produces.
@@ -98,6 +104,139 @@ def content_type(path: Path) -> str:
     return _MIME.get(Path(name).suffix, "application/octet-stream")
 
 
+# Unity names every payload <stem><role>, where the stem is the build folder's
+# name and the role is fixed. Matching on role lets a renamed file be recognised
+# as the right file under the wrong name, which is a completely different problem
+# from the file not being there at all.
+ROLE_SUFFIXES = (
+    ".wasm.code.unityweb",
+    ".wasm.framework.unityweb",
+    ".asm.code.unityweb",
+    ".asm.framework.unityweb",
+    ".asm.memory.unityweb",
+    ".data.unityweb",
+    ".mem.unityweb",
+    ".data",
+    ".wasm",
+    ".mem",
+)
+
+
+def _role(name: str) -> str | None:
+    lower = name.lower()
+    for suffix in ROLE_SUFFIXES:
+        if lower.endswith(suffix):
+            return suffix
+    return None
+
+
+def _manifest_refs(manifest: Path) -> tuple[list[tuple[str, str]], str | None]:
+    """Filenames a legacy .json manifest points at, as (key, filename) pairs."""
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return [], f"{manifest.name} is not valid JSON ({exc})."
+    if not isinstance(data, dict):
+        return [], f"{manifest.name} is not a Unity manifest."
+    refs = [
+        (key, value)
+        for key, value in data.items()
+        if key.endswith("Url") and isinstance(value, str) and value.strip()
+    ]
+    return refs, None
+
+
+def _pick_manifest(build: Path) -> Path | None:
+    """The .json that is actually a Unity manifest.
+
+    Taking the alphabetically-first .json breaks as soon as a build folder has a
+    second one beside it, so the manifest is identified by having *Url keys.
+    """
+    candidates = sorted(build.glob("*.json"))
+    for candidate in candidates:
+        refs, _ = _manifest_refs(candidate)
+        if refs:
+            return candidate
+    return candidates[0] if candidates else None
+
+
+def _audit_payloads(build: Path, manifest: Path) -> dict:
+    """Check that every file the manifest names is really on disk.
+
+    This exists because of one specific, miserable failure mode. When a payload
+    is missing, Unity fetches the 404, hands the response body to the JS engine
+    as though it were the framework, and the browser reports a SyntaxError
+    pointing at a blob URL. Nothing in that message mentions a missing file.
+    Checking up front turns it into a sentence naming the file.
+    """
+    refs, error = _manifest_refs(manifest)
+    if error:
+        return {"error": error}
+
+    on_disk = {p.name: p for p in build.iterdir() if p.is_file()}
+    lowered = {name.lower(): name for name in on_disk}
+
+    by_role: dict[str, list[str]] = {}
+    for name in on_disk:
+        role = _role(name)
+        if role:
+            by_role.setdefault(role, []).append(name)
+
+    missing, empty, hints, absent, renames = [], [], [], [], []
+    for _key, ref in refs:
+        name = ref.split("/")[-1]
+        if name in on_disk:
+            if on_disk[name].stat().st_size == 0:
+                empty.append(name)
+            continue
+        missing.append(name)
+        # Case is the usual culprit when a build has moved between a Windows
+        # machine and a Linux host, or been pulled down by a scraper.
+        near = lowered.get(name.lower())
+        if near:
+            hints.append(
+                f"'{name}' is missing, but '{near}' is present - the names differ "
+                "only by capitalisation. Rename the file on disk to match the "
+                "manifest exactly; this host is case-sensitive."
+            )
+            continue
+
+        # Same role, different stem: the file is here under the wrong name.
+        role = _role(name)
+        candidates = [c for c in by_role.get(role, []) if c not in
+                      {r["to"] for r in renames}] if role else []
+        if len(candidates) == 1:
+            renames.append({"from": candidates[0], "to": name})
+        else:
+            absent.append(name)
+
+    if renames:
+        want = renames[0]["to"][: -len(_role(renames[0]["to"]))]
+        got = renames[0]["from"][: -len(_role(renames[0]["from"]))]
+        hints.append(
+            f"Unity built this as '{want}' and records that name inside the "
+            f"manifest, but the files on disk say '{got}'. Unity build files "
+            "should never be renamed - the manifest is the index."
+        )
+
+    total = sum(p.stat().st_size for p in on_disk.values())
+
+    return {
+        "manifest_stem": (renames[0]["to"][: -len(_role(renames[0]["to"]))]
+                          if renames else None),
+        "disk_stem": (renames[0]["from"][: -len(_role(renames[0]["from"]))]
+                      if renames else None),
+        "expected": [ref.split("/")[-1] for _key, ref in refs],
+        "present": sorted(on_disk),
+        "missing": missing,
+        "absent": absent,
+        "renames": renames,
+        "empty": empty,
+        "hints": hints,
+        "total_bytes": total,
+    }
+
+
 def _find(build: Path, *patterns: str) -> Path | None:
     for pattern in patterns:
         matches = sorted(build.glob(pattern))
@@ -116,13 +255,32 @@ def _inspect_build(build: Path) -> dict | None:
     if loader:
         # The .json manifest names the real payload files, whatever they are
         # called, so it is the only path the page needs.
-        manifest = _find(build, "*.json")
+        manifest = _pick_manifest(build)
         if manifest is None:
             return {"error": "Found UnityLoader.js but no .json manifest beside it."}
+
+        audit = _audit_payloads(build, manifest)
+        if audit.get("error"):
+            return {"error": audit["error"], "audit": audit}
+        if audit["missing"] or audit["empty"]:
+            parts = []
+            if audit["renames"]:
+                parts.append(f"{len(audit['renames'])} renamed")
+            if audit["absent"]:
+                parts.append(f"{len(audit['absent'])} missing entirely")
+            if audit["empty"]:
+                parts.append(f"{len(audit['empty'])} empty")
+            return {
+                "error": (f"{manifest.name} names files that build/ does not "
+                          f"provide: {', '.join(parts)}."),
+                "audit": audit,
+                "manifest": manifest.name,
+            }
         return {
             "generation": "legacy",
             "loader": loader.name,
             "manifest": manifest.name,
+            "audit": audit,
         }
 
     # --- Modern: Unity 2020+ ---------------------------------------------
@@ -208,6 +366,8 @@ def load_game(slug: str) -> dict | None:
     }
     if game["playable"]:
         game["build"] = build
+    if build and build.get("audit"):
+        game["audit"] = build["audit"]
     return game
 
 

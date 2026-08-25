@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from .. import config, games
@@ -70,7 +70,12 @@ async def game_asset(slug: str, path: str):
 def _serve(slug: str, relative: str):
     target = games.resolve_asset(slug, relative)
     if target is None:
-        return HTMLResponse("Not found", status_code=404)
+        # Empty body, deliberately. Unity's loader feeds a failed payload
+        # response straight to the JS engine, so a 404 body of "Not found"
+        # surfaces to the user as "SyntaxError: unexpected token: identifier"
+        # pointing at a blob URL, with no clue that a file is missing.
+        log.warning("404 for game asset: %s/%s", slug, relative)
+        return Response(status_code=404)
 
     headers = {
         # Build files are immutable for a given build; re-uploading changes the

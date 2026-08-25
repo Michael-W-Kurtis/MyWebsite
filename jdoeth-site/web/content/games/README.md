@@ -122,8 +122,40 @@ guesses wrong, override it:
 
 **Other things worth checking:**
 
+### "SyntaxError: unexpected token: identifier"
+
+This one is a red herring, and the site now catches it before you ever see it.
+
+When a payload file is missing, Unity fetches the 404 and hands the response
+body straight to the JavaScript engine as if it were the framework code. The
+browser then reports a syntax error pointing at a `blob:` URL, followed by
+`ReferenceError: UnityModule is not defined`. Neither message mentions a file.
+
+**Scroll up in the console.** The real error is the `[UnityCache] … request
+failed with status: 404` lines above it, and they name the files.
+
+The game page now checks this up front: if the manifest names a file that isn't
+in `build/`, the page lists exactly which ones are missing and what is actually
+there, instead of loading and failing.
+
+### Do not rename Unity build files
+
+The `.json` manifest is an index: it records the filenames Unity produced, and
+the loader fetches exactly those names. Renaming a payload — or renaming the
+manifest itself — breaks the link and every renamed file 404s.
+
+If the files came to you already renamed, either rename them back to what the
+manifest says, or edit the three `*Url` values inside the manifest to match the
+files. Renaming the files back is safer: it restores what Unity actually built.
+
+The build's stem is whatever the output folder was called, so it is often
+something unhelpful like `Export_The_Game_Here_To_Publish_It`. That is fine.
+Leave it alone.
+
 | Symptom | Likely cause |
 |---|---|
+| `SyntaxError` from a blob URL, or `UnityModule is not defined` | A file named in the `.json` manifest is missing from `build/`. Look at the 404s above it. |
+| A missing file whose name differs only in capitalisation | This host is case-sensitive; the original one may not have been. Rename to match the manifest. |
 | "Cannot read property … of undefined" in the console | A file listed in the `.json` manifest is missing from `build/`. |
 | Blank stage, no error | Browser blocked WebGL. Check `chrome://gpu` or equivalent. |
 | Loads but runs slowly | Expected for older asm.js builds. WASM builds are much faster. |

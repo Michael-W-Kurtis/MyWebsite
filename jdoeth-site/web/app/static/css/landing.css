@@ -927,3 +927,71 @@ code { font-family: var(--mono); font-size: .875em; }
 }
 
 .badge--warn, .badge--setup { background: var(--warn-soft); color: var(--warn); }
+
+/* Build diagnostics on a game page that won't start. */
+.audit { display: grid; gap: 14px; margin-top: 18px; }
+.audit__block {
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.audit__block--hint { background: var(--warn-soft); border-color: #f3dcbb; color: var(--warn); }
+.audit__block--hint p { margin: 0; font-size: .92rem; }
+.audit h2 {
+  margin: 0 0 10px;
+  font-size: .76rem;
+  font-weight: 660;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.audit__note { margin: 10px 0 0; font-size: .84rem; color: var(--muted); line-height: 1.6; }
+.audit__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+.audit__cols > div {
+  padding: 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.filelist { margin: 0; padding: 0; list-style: none; }
+.filelist li {
+  font-family: var(--mono);
+  font-size: .8rem;
+  padding: 4px 0;
+  color: var(--ink-2);
+  word-break: break-all;
+}
+.filelist--bad li, .filelist li.is-bad { color: #b3261e; }
+.filelist li.is-bad::before { content: "\2717  "; }
+.filelist li.is-ok::before { content: "\2713  "; color: #1a7f45; }
+
+.fixcmd {
+  margin: 12px 0 0;
+  padding: 13px 15px;
+  background: #0d1524;
+  border-radius: var(--r-sm);
+  overflow-x: auto;
+}
+.fixcmd code {
+  font-family: var(--mono);
+  font-size: .82rem;
+  line-height: 1.8;
+  color: #b8ff3d;
+  white-space: pre;
+}
+.filelist li.is-renamed { color: var(--warn); }
+/* A word, not a glyph: the arrow character silently fell back to nothing in at
+   least one browser, which made a renamed row look identical to a healthy one. */
+.filelist li.is-renamed::before { content: "!  "; font-weight: 700; }
+.filelist li.is-renamed em {
+  font-style: normal;
+  font-size: .72rem;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  opacity: .8;
+}
