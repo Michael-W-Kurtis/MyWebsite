@@ -35,7 +35,11 @@ from . import config
 
 log = logging.getLogger("site.games")
 
-SLUG = re.compile(r"^[a-z0-9][a-z0-9-]{0,48}$")
+# Folder names become URLs. Uppercase and underscores are allowed because people
+# name folders after their game ("MonkeyKongsBGG"), and silently ignoring such a
+# folder is a far worse outcome than a mixed-case URL. Dots and slashes stay out,
+# which is what keeps resolve_asset() safe from traversal.
+SLUG = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,48}$")
 
 # Extensions that may sit in front of a compression suffix.
 _MIME = {
@@ -310,9 +314,20 @@ def _inspect_build(build: Path) -> dict | None:
     return {"error": "No UnityLoader.js and no *.loader.js in build/."}
 
 
+def _default_title(slug: str) -> str:
+    """A readable title from a folder name.
+
+    Only title-case names that are already lowercase; "MonkeyKongsBGG".title()
+    would give "Monkeykongsbgg", which is worse than leaving it alone.
+    """
+    if slug.lower() != slug:
+        return slug.replace("_", " ").replace("-", " ")
+    return slug.replace("_", " ").replace("-", " ").title()
+
+
 def _read_about(directory: Path, slug: str) -> dict:
     about = {
-        "title": slug.replace("-", " ").title(),
+        "title": _default_title(slug),
         "tagline": "",
         "description": "",
         "year": None,
@@ -344,6 +359,27 @@ def _read_about(directory: Path, slug: str) -> dict:
     return about
 
 
+def _locate_build(directory: Path) -> tuple[Path | None, bool]:
+    """Find the Unity output. Returns (path, is_nested).
+
+    The documented layout is <slug>/build/, matching Unity's own output folder
+    and keeping about.json and cover.png clear of the build. But dropping the
+    files straight into <slug>/ is an obvious thing to do, and rejecting that
+    produces a "No build/ directory" message that reads like a bug. So both are
+    accepted, and the docs still recommend the nested form.
+    """
+    nested = directory / "build"
+    if nested.is_dir() and (
+        (nested / "UnityLoader.js").exists() or any(nested.glob("*.loader.js"))
+    ):
+        return nested, True
+    if (directory / "UnityLoader.js").exists() or any(directory.glob("*.loader.js")):
+        return directory, False
+    if nested.is_dir():
+        return nested, True          # exists but empty/wrong - let the audit explain
+    return None, True
+
+
 def load_game(slug: str) -> dict | None:
     """Return one game's descriptor, or None if the slug is not a real game."""
     if not SLUG.match(slug or ""):
@@ -353,14 +389,20 @@ def load_game(slug: str) -> dict | None:
         return None
 
     about = _read_about(directory, slug)
-    build = _inspect_build(directory / "build")
+    build_dir, nested = _locate_build(directory)
+    build = _inspect_build(build_dir) if build_dir else None
 
     game = {
         "slug": slug,
         "href": f"/games/{slug}",
-        "build_url": f"/games/{slug}/build",
+        # Flat layouts are served through /assets, which maps to the game folder
+        # root; nested ones through /build.
+        "build_url": f"/games/{slug}/build" if nested else f"/games/{slug}/assets",
         "playable": bool(build) and "error" not in build,
-        "problem": (build or {}).get("error") or ("No build/ directory." if build is None else None),
+        "problem": (build or {}).get("error") or (
+            "No Unity build found. Put the files in "
+            f"web/content/games/{slug}/build/." if build is None else None),
+        "layout": "nested" if nested else "flat",
         "has_cover": (directory / "cover.png").exists(),
         **about,
     }
@@ -368,7 +410,45 @@ def load_game(slug: str) -> dict | None:
         game["build"] = build
     if build and build.get("audit"):
         game["audit"] = build["audit"]
+
+    # Naming the game folder "build" means the URL becomes /games/build and the
+    # real Unity output ends up at games/build/build. It works, but it is
+    # almost always a mis-step worth pointing out.
+    if slug.lower() == "build":
+        game["naming_warning"] = (
+            "This game's folder is named 'build', so its address is /games/build. "
+            "The folder directly under games/ is the game's name and becomes the "
+            "URL; the Unity output goes in a 'build' folder inside it. Rename "
+            "games/build/ to games/<the-game-name>/ and the address becomes "
+            "/games/<the-game-name>/."
+        )
     return game
+
+
+def skipped_directories() -> list[dict]:
+    """Folders under games/ that could not be used, and why.
+
+    A directory that is quietly absent from the listing is the worst possible
+    failure: the files are there, the page shows nothing, and there is nothing
+    to search for. Anything rejected gets named on the games index instead.
+    """
+    if not config.GAMES_DIR.is_dir():
+        return []
+    out = []
+    for directory in sorted(config.GAMES_DIR.iterdir()):
+        if not directory.is_dir() or directory.name.startswith((".", "_")):
+            continue
+        name = directory.name
+        if SLUG.match(name):
+            continue
+        suggestion = re.sub(r"[^A-Za-z0-9_-]+", "-", name).strip("-")[:49] or "game"
+        out.append({
+            "name": name,
+            "reason": "The folder name contains characters that cannot appear in a "
+                      "URL (letters, digits, hyphen and underscore only).",
+            "suggestion": suggestion,
+        })
+    return out
 
 
 def list_games() -> list[dict]:

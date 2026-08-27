@@ -8,6 +8,20 @@
     <p>Unity WebGL builds, running in the browser.</p>
   </header>
 
+  {% if skipped %}
+  <div class="notice notice--warn">
+    <strong>{{ skipped|length }} folder{{ '' if skipped|length == 1 else 's' }} in
+    <code>{{ games_dir }}/</code> {{ 'was' if skipped|length == 1 else 'were' }}
+    skipped.</strong>
+    <ul class="filelist">
+      {% for item in skipped %}
+      <li><code>{{ item.name }}</code> &mdash; {{ item.reason }}
+          Rename it to <code>{{ item.suggestion }}</code>.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
   {% if games %}
   <div class="gamegrid">
     {% for game in games %}

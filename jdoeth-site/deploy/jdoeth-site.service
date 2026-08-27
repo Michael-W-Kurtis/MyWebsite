@@ -1,0 +1,51 @@
+# systemd unit for running the site directly on an EC2 instance (no Docker).
+#
+#   sudo cp deploy/jdoeth-site.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now jdoeth-site
+#   journalctl -u jdoeth-site -f
+#
+# Edit User, WorkingDirectory and the venv path to match your instance.
+# If you deploy with docker compose instead, you do not need this file.
+
+[Unit]
+Description=jdoeth-site (FastAPI + uvicorn)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/srv/jdoeth-site/web
+
+Environment="DATA_DIR=/srv/jdoeth-site-data"
+Environment="GAMES_DIR=/srv/jdoeth-site/web/content/games"
+Environment="PYTHONUNBUFFERED=1"
+# Publishing visitor IPs to the open internet is a real disclosure. Pick one.
+Environment="STATS_MASK_IPS=true"
+# Environment="STATS_TOKEN=change-me"
+EnvironmentFile=-/srv/jdoeth-site/.env
+
+# No --reload in production: it runs a file watcher and respawns on every write.
+# --workers 2 gives two request handlers; pixelsort concurrency is governed
+# separately by MAX_CONCURRENT_JOBS and BATCH_CONCURRENCY.
+ExecStart=/srv/jdoeth-site/web/.venv/bin/uvicorn app.main:app \
+    --host 127.0.0.1 --port 8000 --workers 2 \
+    --proxy-headers --forwarded-allow-ips '*'
+
+Restart=on-failure
+RestartSec=5s
+
+# A pixelsort batch is CPU-bound; keep it from starving sshd on a small box.
+CPUWeight=80
+Nice=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/srv/jdoeth-site-data
+
+[Install]
+WantedBy=multi-user.target

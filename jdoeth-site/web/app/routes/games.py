@@ -41,6 +41,7 @@ def _context(request: Request, page: str) -> dict:
 async def games_index(request: Request):
     ctx = _context(request, "games")
     ctx["games"] = games.list_games()
+    ctx["skipped"] = games.skipped_directories()
     ctx["games_dir"] = "web/content/games"
     return templates.TemplateResponse(request, "games.html", ctx)
 

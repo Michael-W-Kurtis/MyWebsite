@@ -16,6 +16,10 @@
     </div>
   </header>
 
+  {% if game.naming_warning %}
+  <div class="notice">{{ game.naming_warning }}</div>
+  {% endif %}
+
   {% if not game.playable %}
   <div class="notice notice--warn">
     <strong>This build won't run yet.</strong> {{ game.problem }}

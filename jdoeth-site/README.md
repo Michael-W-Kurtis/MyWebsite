@@ -151,6 +151,65 @@ Both Unity generations are supported and detected automatically: `UnityLoader.js
 troubleshooting table, are in `web/content/games/README.md`** — deliberately kept
 next to where the files go.
 
+### Backing the games up to git
+
+Commit them. The instinct to keep binaries out of git is about *churn* — a file
+edited fifty times is stored fifty times, forever. A `.unityweb` is written once
+and never touched again, so there is exactly one version and no history to bloat.
+Git LFS solves a problem you do not have, and its free tier meters bandwidth,
+which is a worse trade than the disk you save.
+
+Check first:
+
+```bash
+./deploy/check-sizes.sh
+```
+
+GitHub blocks any single file over 100 MB outright and warns over 50 MB. Three
+typical Unity WebGL builds land somewhere between 20 and 100 MB in total, which
+is comfortable. If one payload is over 100 MB, that one file needs Git LFS or a
+Release asset — not the whole directory.
+
+There is a second payoff: with the builds in the repo, `git clone` is the entire
+deployment. Nothing to copy separately onto the server.
+
+What should *not* be committed is archives — `.tar.gz` and `.zip` do churn, and
+each one is stored forever. Those are now in `.gitignore`.
+
+### Adding another game
+
+Same shape, one folder each:
+
+```
+web/content/games/
+├── goo/
+│   ├── about.json
+│   └── build/
+├── second-game/
+│   ├── about.json
+│   └── build/
+└── third-game/
+    ├── about.json
+    └── build/
+```
+
+Nothing else changes — the games index and the projects grid both read the
+directory at request time. Two things to watch when the games come off
+Kongregate:
+
+- **The build folder name is not the game name.** The folder directly under
+  `games/` becomes the URL; the Unity output goes in `build/` inside it. Naming
+  the outer folder `build` gives you `/games/build`, which is why the page now
+  says so if you do.
+- **Folder names take letters, digits, hyphens and underscores.** Mixed case
+  works (`MonkeyKongsBGG` &rarr; `/games/MonkeyKongsBGG`) but makes the URL
+  case-sensitive. Anything else — spaces, dots — is rejected, and the games page
+  names the folder and suggests a replacement rather than ignoring it.
+- **Kongregate API calls.** Games uploaded there often call `kongregateAPI` for
+  score submission. Off-platform that object does not exist. Most Unity
+  integrations guard the call and degrade quietly; if one throws in the console
+  instead, a small no-op shim in `game.js` fixes it.
+
 ### Tune the batch grids
 
 Every ladder, axis assignment and sweep range lives in one file:
@@ -353,14 +412,71 @@ usefully be, and what `db/` is, is the volume's owner and caretaker:
 
 ## Moving to AWS
 
-The stack is deliberately ordinary, so the migration is mostly deletion.
+### Step 1 — lift and shift onto EC2
 
-**Smallest step — lift and shift.** One EC2 instance (t3.small is enough), Docker
-and Compose, `git pull && docker compose up -d --build`. Put an ALB in front for
-TLS. The `sitedata` volume becomes an EBS volume. Nothing in the code changes.
+The compose stack already works, so this is genuinely `git clone` and
+`docker compose up -d --build`. The decisions that actually matter:
 
-**Next step — ECS Fargate.** Push `web` and `nginx` to ECR. The two things that
-need real decisions:
+**Instance type — do not use a small burstable one.** Pixel sorting is a
+CPU-bound pure-Python loop, and a 16-cell batch will run four cores flat out for
+minutes. `t3`/`t4g` instances earn CPU credits while idle and throttle hard once
+they are spent, so a batch that takes two minutes on a fresh instance can take
+twenty on a drained one. Either pick a compute instance (`c7g.xlarge`,
+`c6i.xlarge` — 4 vCPU) or run a `t3.xlarge` in **unlimited** mode and accept the
+surcharge. 4 vCPU matches the default `BATCH_CONCURRENCY=4`; if you size down,
+set it to `vCPUs - 1`.
+
+**Storage.** gp3 EBS. Budget the game builds plus batch output: 16 full-size PNGs
+per batch, kept for `BATCH_RETENTION_HOURS` (a week by default). 30 GB is
+comfortable; snapshot it on a schedule.
+
+**Keep SQLite on EBS, never on EFS.** This is the one thing that will corrupt
+data rather than merely annoy you. SQLite's locking relies on POSIX advisory
+locks that NFS does not implement reliably, and WAL mode needs shared memory that
+NFS cannot provide at all.
+
+**TLS and DNS.** Elastic IP, Route 53 record, then either an ALB with an ACM
+certificate, or certbot against the nginx container. The ALB is less fiddly and
+gives you health checks for free.
+
+**Security group.** 80 and 443 open; SSH restricted to your own address. Nothing
+else — the app has no other listener.
+
+**Turn on the stats protection.** On a LAN this was academic. On a public address
+`/stats` publishes every visitor's IP to every other visitor. Set
+`STATS_MASK_IPS=true`, or `STATS_TOKEN=<something long>`, in `.env` before the
+DNS record goes live.
+
+**Rate limits earn their keep now.** nginx already meters `/api/sort` at 10/min
+and `/api/batch` at 4/min per address. `/api/batch` is the most expensive
+endpoint on the site by an order of magnitude and is the first thing to put
+behind auth if the address ever circulates.
+
+#### Without Docker
+
+If you would rather run uvicorn directly, `deploy/` has what you need:
+
+```bash
+sudo cp deploy/jdoeth-site.service /etc/systemd/system/
+sudo systemctl enable --now jdoeth-site
+```
+
+It runs with `--workers 2` and **no `--reload`** (a file watcher respawning the
+app on every write is a development convenience, not a server), drops privileges,
+and restarts on failure. Add `deploy/backup-db.sh` to cron for the SQLite hot
+backup that the `db` sidecar performs in the compose stack. You still want nginx
+in front for TLS and static files.
+
+### Step 2 — containerising properly (ECS/Fargate)
+
+Push `web` and `nginx` to ECR. Four things need real decisions, and the first one
+will bite immediately:
+
+- **Uncomment the games line in `.dockerignore`.** It currently excludes
+  `web/content/games/*/build/` because compose supplies them through a bind
+  mount. Fargate has no bind mount, so unless you either bake the builds into the
+  image or move them to S3, every game 404s in production. Baking them in is fine
+  — they are immutable.
 
 - **Drop the `db` container.** Its job was owning a local volume. On Fargate,
   replace SQLite with **RDS Postgres or Aurora Serverless v2**, and swap `app/db.py`

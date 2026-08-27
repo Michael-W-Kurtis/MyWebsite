@@ -5,6 +5,9 @@ data/
 *.pyc
 README.md
 
-# Unity builds reach the container through the web/content bind mount, so there
-# is no reason to bake tens of megabytes into the image as well.
+# Unity builds reach the container through the web/content bind mount, so with
+# docker compose there is no reason to bake them into the image as well.
+#
+# IMPORTANT for ECS/Fargate: there is no bind mount there. Comment this line out
+# before building an image for Fargate, or the games will 404 in production.
 web/content/games/*/build/

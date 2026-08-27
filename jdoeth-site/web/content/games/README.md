@@ -11,7 +11,7 @@ One folder per game. The folder name becomes the URL.
 
 ```
 web/content/games/
-└── orbital-drift/            <-- lowercase, hyphens only. This is the URL slug.
+└── orbital-drift/            <-- this folder's name becomes the URL
     ├── about.json            <-- optional. Title, description, controls.
     ├── cover.png             <-- optional. Thumbnail for the games grid.
     └── build/                <-- required. The Unity output goes here, as-is.
@@ -22,6 +22,32 @@ web/content/games/
 ```
 
 That game is then live at **`/games/orbital-drift`**.
+
+### Naming the folder
+
+Letters, digits, hyphens and underscores. Mixed case is fine — `MonkeyKongsBGG`
+works and gives you `/games/MonkeyKongsBGG` — but the URL is then case-sensitive,
+so all-lowercase-with-hyphens is easier to type and to link.
+
+Spaces, dots and anything else are rejected, because they cannot go in a URL
+cleanly. A folder that gets rejected is **named on the games page** with a
+suggested replacement, rather than silently disappearing.
+
+### The two levels matter
+
+The folder directly under `games/` is the **game's name**, and it becomes the
+URL. The Unity output goes in a folder called `build` **inside** it.
+
+```
+games/orbital-drift/build/UnityLoader.js     <-- right: /games/orbital-drift
+games/build/build/UnityLoader.js             <-- works, but the URL is /games/build
+games/UnityLoader.js                         <-- not a game at all
+```
+
+Putting the files straight into the game folder (no `build/`) is also accepted,
+so `games/orbital-drift/UnityLoader.js` works too. The nested form is still
+recommended: it keeps `about.json` and `cover.png` clear of the build, and it
+matches what Unity produces.
 
 If your original site had a `TemplateData/` folder, copy it in beside `build/`.
 It isn't required — this site renders its own page around the canvas — but
