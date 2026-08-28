@@ -80,7 +80,7 @@ RETENTION_HOURS = _int("RETENTION_HOURS", 24)
 # The brief asks for a public page listing visitor IPs. That is implemented, but
 # both of these switches exist because publishing raw IPs is a real disclosure.
 # See README "Before you expose this to the internet".
-STATS_MASK_IPS = _bool("STATS_MASK_IPS", False)
+STATS_MASK_IPS = _bool("STATS_MASK_IPS", True)
 STATS_TOKEN = os.getenv("STATS_TOKEN", "").strip()
 
 # Only trust X-Real-IP when the direct peer is one of these. Otherwise any client
