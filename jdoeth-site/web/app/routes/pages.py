@@ -17,6 +17,9 @@ log = logging.getLogger("site.pages")
 router = APIRouter()
 templates = Jinja2Templates(directory=str(config.BASE_DIR / "templates"))
 
+# The heading used both for the card on /projects and the games index itself.
+GAMES_GROUP_TITLE = "My Highschool Projects"
+
 RESUME_MD = config.CONTENT_DIR / "resume.md"
 RESUME_PDF = config.CONTENT_DIR / "resume.pdf"
 
@@ -93,17 +96,23 @@ async def projects(request: Request):
             "status": "live",
         },
     ]
-    # Games are discovered from disk, so dropping a build into
-    # web/content/games/<slug>/ makes a card appear with no code change.
-    for game in games_registry.list_games():
+    # Games are grouped behind a single card rather than listed individually.
+    # They are old high-school Unity builds and sit at a different level from the
+    # current work, so they get one entry that leads to their own index.
+    game_list = games_registry.list_games()
+    if game_list:
+        playable = [g for g in game_list if g["playable"]]
+        count = len(playable) or len(game_list)
         catalogue.append({
-            "slug": game["slug"],
-            "title": game["title"],
-            "tagline": game["tagline"] or "Unity WebGL",
-            "body": game["description"] or "A browser game.",
-            "tags": game["tags"],
-            "href": game["href"],
-            "status": "live" if game["playable"] else "setup",
+            "slug": "highschool-games",
+            "title": GAMES_GROUP_TITLE,
+            "tagline": f"{count} Unity WebGL game{'' if count == 1 else 's'}, "
+                       "recovered and rehosted",
+            "body": "Games I wrote in high school and put on Kongregate, running "
+                    "again in the browser. Keyboard and mouse required.",
+            "tags": ["Unity", "WebGL", "Archive"],
+            "href": "/games",
+            "status": "live",
         })
 
     ctx = _base_context("projects")

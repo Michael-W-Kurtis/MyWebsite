@@ -4,9 +4,19 @@
 {% block content %}
 <section class="sheet sheet--wide">
   <header class="sheet__head">
-    <h1>Games</h1>
-    <p>Unity WebGL builds, running in the browser.</p>
+    <p class="crumb"><a href="/projects">Projects</a> <span aria-hidden="true">/</span></p>
+    <h1>{{ group_title }}</h1>
+    <p>
+      Unity games I wrote in high school and put on Kongregate, recovered and
+      running again in the browser.
+    </p>
   </header>
+
+  <p class="needs-desktop">
+    <strong>These need a keyboard and mouse.</strong> They were built years
+    before phones were a target, so there are no touch controls. Open this page
+    on a computer to play.
+  </p>
 
   {% if skipped %}
   <div class="notice notice--warn">
