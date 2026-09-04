@@ -1,0 +1,18 @@
+.env
+data/
+__pycache__/
+*.pyc
+web/content/resume.pdf
+
+# Unity builds are deliberately NOT ignored. They are large, but they are also
+# immutable - you will never edit a .unityweb - so there is only ever one version
+# of each and no history to bloat. Committing them makes `git clone` the entire
+# deployment. Run ./deploy/check-sizes.sh before pushing; uncomment the line
+# below only if that script tells you to.
+# web/content/games/*/build/
+
+# Do not commit archives. Unlike game builds, these DO churn: a new one every
+# time you package, each stored forever.
+*.tar.gz
+*.zip
+.DS_Store
