@@ -28,6 +28,16 @@ python -c "import fastapi, uvicorn, PIL, pixelsort" 2>/dev/null || {
   exit 1
 }
 
+# Ruby is only needed by the PNGlitch wrapper. Warn rather than exit: the rest
+# of the site is unaffected.
+if ! command -v ruby >/dev/null 2>&1; then
+  echo "NOTE: ruby not found - the PNGlitch wrapper will not run."
+  echo "      sudo apt install ruby-full && sudo gem install pnglitch"
+elif ! ruby -e "require 'pnglitch'" >/dev/null 2>&1; then
+  echo "NOTE: ruby found, but the pnglitch gem is missing."
+  echo "      sudo gem install pnglitch"
+fi
+
 echo "Serving from $(pwd)"
 echo "  data     $DATA_DIR"
 echo "  games    $HERE/web/content/games"

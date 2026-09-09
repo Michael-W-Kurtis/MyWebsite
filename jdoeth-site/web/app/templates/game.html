@@ -5,6 +5,9 @@
 {% block content %}
 <section class="sheet sheet--wide">
 
+  <p class="crumb"><a href="/projects">Projects</a> <span aria-hidden="true">/</span>
+     <a href="/games">Highschool Projects</a> <span aria-hidden="true">/</span></p>
+
   <header class="gamehead">
     <div>
       <h1 class="gamehead__title">{{ game.title }}</h1>
@@ -15,6 +18,11 @@
       {% for tag in game.tags %}<span class="pill pill--quiet">{{ tag }}</span>{% endfor %}
     </div>
   </header>
+
+  <p class="needs-desktop">
+    <strong>This game needs a keyboard and mouse.</strong> It has no touch
+    controls, so it will load on a phone but you will not be able to play it.
+  </p>
 
   {% if game.naming_warning %}
   <div class="notice">{{ game.naming_warning }}</div>

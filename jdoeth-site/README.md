@@ -22,52 +22,32 @@ browser ──▶ nginx :80 ──▶ web :8000 (FastAPI + uvicorn)
 
 ## Quick start
 
-```bash
-git clone <this repo> && cd jdoeth-site
-cp .env.example .env          # optional; every value has a default
-docker compose up -d --build
-```
-
-Open **http://localhost:8080**. First build takes about a minute; after that,
-startup is a few seconds.
+### Running directly (no Docker)
 
 ```bash
-docker compose logs -f web    # follow the app
-docker compose down           # stop, keep data
-docker compose down -v        # stop, delete the volume (uploads, stats, backups)
+cd jdoeth-site
+python3 -m venv web/.venv && source web/.venv/bin/activate
+pip install -r web/requirements.txt
+
+# Only needed for the PNGlitch wrapper. Everything else runs without it.
+sudo apt install ruby-full && sudo gem install pnglitch
+
+./run.sh
 ```
 
-### Without Docker
+`run.sh` finds its own directory, activates `web/.venv` if present, checks for
+Ruby and the gem, and binds `0.0.0.0:8000`. Pass extra arguments straight through
+(`./run.sh --host 127.0.0.1`), or set `PORT`.
 
-```bash
-./run.sh                              # binds 0.0.0.0:8000
-PORT=9000 ./run.sh                    # or override via environment
-./run.sh --host 127.0.0.1             # extra args pass through to uvicorn
-```
-
-It binds `0.0.0.0` by default so the site is reachable by hostname from other
-machines on the LAN. Pass `--host 127.0.0.1` if you want loopback only.
-
-Or by hand — note the `cd web`, which is not optional:
-
-```bash
-cd web                      # app/ lives here, NOT in the repo root
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-DATA_DIR=./data uvicorn app.main:app --reload --port 8000
-```
-
-http://localhost:8000. Everything works except nginx's static serving and rate
-limiting — the app falls back to serving those paths itself.
+Without nginx the app serves static files, uploads, results, glitches and game
+assets itself, so everything works — you lose only nginx's caching and rate
+limiting.
 
 **`ModuleNotFoundError: No module named 'app'`** means uvicorn was started from
-the wrong directory. It resolves `app.main:app` against the current directory,
-and `app/` is inside `web/`, one level below the repo root. Either `cd web`
-first, or point uvicorn at it explicitly:
+the wrong directory: `app/` lives inside `web/`, not at the repo root. `run.sh`
+handles this; by hand, `cd web` first or pass `--app-dir web`.
 
-```bash
-uvicorn app.main:app --app-dir web --reload --port 8000
-```
+### Running with Docker
 
 ### Upgrading an existing copy
 
@@ -176,6 +156,25 @@ deployment. Nothing to copy separately onto the server.
 What should *not* be committed is archives — `.tar.gz` and `.zip` do churn, and
 each one is stored forever. Those are now in `.gitignore`.
 
+### Where the games live in the site
+
+Games do not appear as individual cards on `/projects`. They are grouped behind
+a single card — "My Highschool Projects" — that leads to `/games`, so old
+Unity builds sit one level below current work rather than beside it.
+
+- The card's heading comes from `GAMES_GROUP_TITLE` at the top of
+  `web/app/routes/pages.py`. Change it there and both the card and the index
+  page follow.
+- The card only appears when there is at least one game installed.
+- `/games` is unchanged as a URL. Renaming it would change the asset paths the
+  Unity loader fetches at runtime, for no gain.
+- The top-nav "Games" link is gone, since the whole point is that the games are
+  a level deeper. Put it back by restoring one `<a>` in `web/app/templates/base.html`.
+
+These builds predate touch input, so a banner appears on phones and tablets
+(`@media (hover: none) and (pointer: coarse)`) saying they need a keyboard and
+mouse. It is CSS-only, so there is no flash of the wrong state before JS loads.
+
 ### Adding another game
 
 Same shape, one folder each:
@@ -249,6 +248,61 @@ docker compose start web
 ```
 
 ---
+
+## The PNGlitch wrapper
+
+`/projects/pnglitch` is a front end for [ucnv/pnglitch](https://github.com/ucnv/pnglitch),
+a Ruby library that breaks PNG files on purpose.
+
+**Ruby is a build-time dependency only.** The Dockerfile installs `ruby` and runs
+`gem install pnglitch` once, and the build then verifies the gem is importable so
+a broken image fails at build rather than on the first request. pnglitch has no
+runtime dependencies beyond Ruby's stdlib, and nothing reaches rubygems.org while
+the site is running. **Running outside Docker, you must install both yourself:**
+
+```bash
+sudo apt install ruby-full
+sudo gem install pnglitch
+ruby -e "require 'pnglitch'; puts PNGlitch::VERSION"   # should print a version
+```
+
+No sudo? `gem install --user-install pnglitch`, then put
+`~/.local/share/gem/ruby/*/bin` on your PATH. `RUBY_BIN` overrides which
+interpreter is used.
+
+Without them the glitch page shows a setup panel with these commands instead of
+letting you upload and hit a stack trace, `run.sh` prints a note at startup, and
+the API returns a 503 that names the fix. Nothing else on the site is affected.
+
+**There is no CLI worth wrapping.** pnglitch's command line takes one option and
+performs one hardcoded corruption — six possible outputs in total. So
+`web/app/pnglitch_spec.py` holds a curated set of seven operations and generates
+the Ruby for the chosen one. Every interpolated value is an integer or an
+allow-listed constant; the user never supplies code, and a submitted value that
+is not on the list is refused by name.
+
+**Filter type is the important control, and it is not an operation.**
+`change_all_filters` on its own is nearly lossless — the image comes back looking
+untouched. What the filter type actually decides is how far damage *propagates*:
+with `none` a corrupted byte stays a speck, with `up` or `paeth` it smears down
+every row beneath. The same operation at two filter settings produces completely
+different pictures, which is why the filter is a separate control applied before
+the glitch. (Filter banding is the exception — it *is* filter manipulation, so
+the modifier is hidden for it.)
+
+**Seeds are real here.** Unlike the pixelsort tools, the randomness lives in the
+Ruby we generate, so it is explicitly seeded: the same image and settings always
+give the same output, caching works correctly, and the re-roll button simply
+bumps the seed.
+
+**The output is meant to be broken.** Browsers disagree about how much malformed
+PNG they will render, so a blank result pane is ambiguous. Each result carries a
+status — *valid* / *malformed but decodable* / *undecodable* — worked out by
+trying to open it with Pillow, plus a note explaining the blanks and a button
+that re-decodes it server-side on demand. The download is always the raw artifact.
+
+One operation was cut rather than shipped: resizing the IHDR width produced a
+black image at every setting tried.
 
 ## The two pixelsort apps
 

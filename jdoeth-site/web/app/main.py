@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import config, db, runner
-from .routes import api, batch, games, pages
+from .routes import api, batch, games, pages, pnglitch
 from .tracking import VisitTrackingMiddleware
 
 logging.basicConfig(
@@ -44,6 +44,15 @@ async def lifespan(app: FastAPI):
     runner.sweep_old_files()
     runner.sweep_batches()
     task = asyncio.create_task(_sweeper())
+    ruby = runner.ruby_status()
+    if ruby["ok"]:
+        log.info("pnglitch ready (ruby=%s, gem %s)", ruby["ruby"], ruby.get("version"))
+    else:
+        log.warning(
+            "PNGlitch wrapper disabled: %s. Install with "
+            "`sudo apt install ruby-full && sudo gem install pnglitch`. "
+            "Everything else works without it.", ruby["reason"]
+        )
     log.info("Ready. db=%s uploads=%s", config.DB_PATH, config.UPLOAD_DIR)
     yield
     task.cancel()
@@ -58,11 +67,13 @@ app.mount("/static", StaticFiles(directory=str(config.BASE_DIR / "static")), nam
 app.mount("/uploads", StaticFiles(directory=str(config.UPLOAD_DIR)), name="uploads")
 app.mount("/results", StaticFiles(directory=str(config.RESULT_DIR)), name="results")
 app.mount("/batches", StaticFiles(directory=str(config.BATCH_DIR)), name="batches")
+app.mount("/glitches", StaticFiles(directory=str(config.GLITCH_DIR)), name="glitches")
 
 app.include_router(pages.router)
 app.include_router(api.router)
 app.include_router(batch.router)
 app.include_router(games.router)
+app.include_router(pnglitch.router)
 
 _templates = Jinja2Templates(directory=str(config.BASE_DIR / "templates"))
 

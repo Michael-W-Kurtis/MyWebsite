@@ -45,6 +45,21 @@ MAX_CONCURRENT_JOBS = _int("MAX_CONCURRENT_JOBS", 2)
 # Unity WebGL builds live here, bind-mounted read-only. Dropping a game in needs
 # no rebuild: the registry rescans on every request.
 GAMES_DIR = Path(os.getenv("GAMES_DIR", CONTENT_DIR / "games"))
+GLITCH_DIR = Path(os.getenv("GLITCH_DIR", DATA_DIR / "glitches"))
+
+# --- PNGlitch wrapper -------------------------------------------------------
+# Ruby is only needed at image build time to install the gem; nothing here
+# reaches the network at runtime.
+RUBY_BIN = os.getenv("RUBY_BIN", "ruby")
+
+# Only applied to images that have to be CONVERTED to PNG. Real PNG uploads pass
+# through untouched, because bit depth, palette and interlacing are precisely
+# what make one PNG glitch differently from another.
+PNGLITCH_MAX_EDGE = _int("PNGLITCH_MAX_EDGE", 2400)
+
+# Changing filter types re-encodes every scanline byte-by-byte in interpreted
+# Ruby, so it is the expensive operation. Plain glitches are near-instant.
+PNGLITCH_TIMEOUT = _int("PNGLITCH_TIMEOUT", 120)
 
 # --- Batch pixelsorter ------------------------------------------------------
 # Cells render at the input's own resolution. This cap only stops accidents:
@@ -80,7 +95,7 @@ RETENTION_HOURS = _int("RETENTION_HOURS", 24)
 # The brief asks for a public page listing visitor IPs. That is implemented, but
 # both of these switches exist because publishing raw IPs is a real disclosure.
 # See README "Before you expose this to the internet".
-STATS_MASK_IPS = _bool("STATS_MASK_IPS", True)
+STATS_MASK_IPS = _bool("STATS_MASK_IPS", False)
 STATS_TOKEN = os.getenv("STATS_TOKEN", "").strip()
 
 # Only trust X-Real-IP when the direct peer is one of these. Otherwise any client
@@ -91,5 +106,5 @@ TRUSTED_PROXIES = [
     if cidr.strip()
 ]
 
-for _d in (UPLOAD_DIR, RESULT_DIR, BATCH_DIR, DB_PATH.parent):
+for _d in (UPLOAD_DIR, RESULT_DIR, BATCH_DIR, GLITCH_DIR, DB_PATH.parent):
     _d.mkdir(parents=True, exist_ok=True)

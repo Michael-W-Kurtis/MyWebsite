@@ -995,3 +995,34 @@ code { font-family: var(--mono); font-size: .875em; }
   text-transform: uppercase;
   opacity: .8;
 }
+
+/* Breadcrumb for pages that now sit one level below /projects. */
+.crumb {
+  margin: 0 0 8px;
+  font-size: .82rem;
+  font-weight: 560;
+  letter-spacing: .02em;
+  color: var(--muted);
+}
+.crumb a { text-decoration: none; }
+.crumb a:hover { text-decoration: underline; }
+.crumb span { margin: 0 4px; opacity: .5; }
+
+/* Shown only on devices without a precise pointer. These builds predate touch
+   input entirely, so on a phone they load and then cannot be played — better to
+   say so before the download than after it. Pure CSS so there is no flash of
+   the wrong state while JS boots. */
+.needs-desktop { display: none; }
+@media (hover: none) and (pointer: coarse) {
+  .needs-desktop {
+    display: block;
+    margin: 0 0 20px;
+    padding: 14px 16px;
+    background: var(--warn-soft);
+    border: 1px solid #f3dcbb;
+    border-radius: var(--r-md);
+    color: var(--warn);
+    font-size: .9rem;
+    line-height: 1.6;
+  }
+}

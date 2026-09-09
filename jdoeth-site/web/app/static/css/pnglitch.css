@@ -1,0 +1,238 @@
+/* ============================================================
+   PNGlitch Wrapper — green variant of the Y2K sheet.
+   Loaded AFTER y2k.css and overrides its custom properties, so
+   every shared component (panels, dials, terminal, modal) comes
+   along without being restated. Same language, different dialect:
+   phosphor green and acid lime instead of cyan and magenta.
+   ============================================================ */
+
+.glitchpage {
+  --sky:      #9fe6c4;
+  --sky-deep: #63c99b;
+  --panel:    #ffffff;
+  --panel-2:  #e8fbf0;
+  --ink:      #06180f;
+
+  /* The accents swap roles: lime is the primary, toxic green the secondary,
+     and a hot chartreuse replaces magenta for destructive actions. */
+  --magenta:  #12b866;   /* primary action */
+  --cyan:     #b6ff2e;   /* highlight */
+  --lime:     #eaff8a;   /* soft highlight */
+  --violet:   #0a7f45;
+
+  --chrome-hi: #ffffff;
+  --chrome:    #dfeee6;
+  --chrome-lo: #9dbfae;
+}
+
+.glitchpage .logo__word { text-shadow: 3px 3px 0 var(--cyan); }
+.glitchpage .logo__word--alt { text-shadow: 3px 3px 0 #0a7f45; }
+.glitchpage .terminal__body code { color: var(--cyan); }
+.glitchpage .terminal__body code::before { content: ""; }
+.glitchpage .flag { color: var(--cyan); }
+
+/* Ruby is multi-line, so the terminal needs to breathe. */
+.glitchpage .terminal__body { max-height: 320px; overflow-y: auto; }
+.glitchpage .terminal__body code { display: block; line-height: 1.65; font-size: 12.5px; }
+
+/* ---------- Layout ---------- */
+
+.glitchpage .workbench {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.25fr);
+}
+.panel--drop   { grid-column: 1; }
+.panel--ops    { grid-column: 2; }
+.panel--view   { grid-column: 3; grid-row: 1 / span 3; }
+.panel--params { grid-column: 1 / span 2; }
+.panel--run    { grid-column: 1 / -1; }
+
+.panel--drop { transform: rotate(-.45deg); }
+.panel--view { transform: rotate(.3deg); }
+
+.converted {
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: bold;
+  background: var(--lime);
+  border: 2px solid var(--ink);
+}
+
+/* ---------- Operation buttons ---------- */
+
+.oplist { display: grid; gap: 7px; }
+
+.op {
+  display: block;
+  width: 100%;
+  padding: 9px 11px;
+  text-align: left;
+  font-family: var(--face);
+  background: #fff;
+  border: var(--hard);
+  box-shadow: var(--pop-sm);
+  cursor: pointer;
+  transition: background-color .12s, transform .1s, box-shadow .1s;
+}
+.op:hover { background: var(--panel-2); }
+.op.is-on {
+  background: linear-gradient(180deg, #3fe08d 0%, var(--magenta) 100%);
+  color: #04220f;
+}
+.op:active { transform: translate(3px, 3px); box-shadow: none; }
+
+.op__name {
+  display: block;
+  font-family: var(--disp);
+  font-size: 14px;
+  font-weight: bold;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.op__desc { display: block; font-size: 10.5px; line-height: 1.5; opacity: .8; }
+.op.is-on .op__desc { opacity: .92; }
+
+/* ---------- Seed ---------- */
+
+.seedrow { display: flex; gap: 8px; }
+.seedinput {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 9px 10px;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: bold;
+  background: #fff;
+  border: var(--hard);
+}
+.btn--reroll { flex: 0 0 auto; padding: 9px 14px; font-size: 12px; letter-spacing: .1em; }
+
+/* ---------- Result extras ---------- */
+
+.viewport__box img { max-height: 420px; }
+
+.resultbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.badge-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border: 2px solid var(--ink);
+}
+.badge-status[data-status="valid"]       { background: var(--cyan); }
+.badge-status[data-status="decodable"]   { background: #ffe14d; }
+.badge-status[data-status="undecodable"] { background: #ff5c7a; color: #fff; }
+
+.blanknote {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  font-size: 10.5px;
+  line-height: 1.65;
+  background: var(--panel-2);
+  border: 2px dashed var(--ink);
+}
+
+.btn--rescue {
+  display: block;
+  width: 100%;
+  margin-top: 9px;
+  padding: 11px 10px;
+  font-size: 12px;
+  letter-spacing: .06em;
+  background: linear-gradient(180deg, var(--chrome-hi) 0%, var(--chrome) 46%, var(--chrome-lo) 100%);
+  box-shadow: var(--pop-sm);
+}
+.btn--rescue:hover { background: linear-gradient(180deg, #fff 0%, var(--cyan) 100%); }
+
+.rescuenote {
+  margin: 9px 0 0;
+  padding: 9px 11px;
+  font-size: 10.5px;
+  line-height: 1.6;
+  background: #ffe14d;
+  border: 2px solid var(--ink);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 1100px) {
+  .glitchpage .workbench { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .panel--drop   { grid-column: 1; }
+  .panel--ops    { grid-column: 2; }
+  .panel--params { grid-column: 1 / -1; }
+  .panel--view   { grid-column: 1 / -1; grid-row: auto; transform: rotate(0); }
+}
+
+@media (max-width: 720px) {
+  .glitchpage .workbench { grid-template-columns: 1fr; }
+  .panel--drop, .panel--ops, .panel--params, .panel--view, .panel--run {
+    grid-column: 1; transform: none;
+  }
+}
+
+/* The primary button in y2k.css hardcodes its pink gradient stops rather than
+   deriving them from --magenta, so overriding the variable is not enough. */
+.glitchpage .btn--sort {
+  background: linear-gradient(180deg, #4bf0a2 0%, var(--magenta) 46%, #07894a 100%);
+  color: #04220f;
+  text-shadow: 1px 1px 0 rgba(255, 255, 255, .35);
+}
+.glitchpage .btn--sort:hover:not([disabled]) {
+  background: linear-gradient(180deg, #6ff8ba 0%, #16cf72 46%, #0a9c55 100%);
+}
+.glitchpage .btn--sort[disabled] {
+  background: linear-gradient(180deg, #dfeee6 0%, #9dbfae 100%);
+  color: #3d5a4c;
+  text-shadow: none;
+}
+.glitchpage .viewport__cap--alt { color: #04220f; }
+.glitchpage .param__value { background: var(--magenta); color: #04220f; }
+.glitchpage .working__bar span {
+  background: repeating-linear-gradient(90deg, var(--magenta) 0 8px, var(--violet) 8px 16px);
+}
+
+/* Shown when Ruby or the gem is missing. Deliberately loud and above the tool:
+   the alternative is letting someone upload an image, press the button, and
+   receive a stack trace. */
+.setupbar {
+  position: relative;
+  z-index: 2;
+  max-width: 1240px;
+  margin: 0 auto 22px;
+  padding: 18px 20px;
+  background: #fff5c2;
+  border: var(--hard);
+  box-shadow: var(--pop);
+}
+.setupbar__head {
+  margin: 0 0 8px;
+  font-family: var(--disp);
+  font-size: 16px;
+  font-weight: bold;
+  letter-spacing: .02em;
+}
+.setupbar__body { margin: 8px 0 0; font-size: 12px; line-height: 1.7; }
+.setupbar__cmd {
+  margin: 10px 0 0;
+  padding: 12px 14px;
+  background: var(--ink);
+  overflow-x: auto;
+}
+.setupbar__cmd code {
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--cyan);
+  white-space: pre;
+}

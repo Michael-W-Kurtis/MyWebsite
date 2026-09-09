@@ -15,9 +15,18 @@ WORKDIR /app
 
 # Pillow's wheels cover the common formats; libjpeg/zlib come along with them.
 # curl is here only so the compose healthcheck has something to call.
+# ruby is here for the PNGlitch wrapper. The gem is installed once, at build
+# time; nothing reaches rubygems.org when the site is running. pnglitch has no
+# runtime dependencies beyond Ruby's own stdlib (zlib, stringio, tempfile), so
+# this stays small - no build toolchain, no native extensions.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends curl \
+ && apt-get install -y --no-install-recommends curl ruby ruby-rubygems \
+ && gem install pnglitch --no-document \
+ && apt-get purge -y --auto-remove \
  && rm -rf /var/lib/apt/lists/*
+
+# Fail the build rather than the first request if the gem is not importable.
+RUN ruby -e "require 'pnglitch'; puts 'pnglitch ' + PNGlitch::VERSION"
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

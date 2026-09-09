@@ -25,7 +25,7 @@ INTERVAL=${BACKUP_INTERVAL_SECONDS:-86400}
 KEEP=${BACKUP_KEEP:-7}
 
 echo "[db] preparing /data for uid ${APP_UID}"
-mkdir -p /data/UploadedImages /data/results /data/batches /data/db "$BACKUP_DIR"
+mkdir -p /data/UploadedImages /data/results /data/batches /data/glitches /data/db "$BACKUP_DIR"
 
 echo "[db] applying schema to $DB"
 sqlite3 "$DB" < /schema.sql

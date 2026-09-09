@@ -3,6 +3,7 @@ data/
 __pycache__/
 *.pyc
 web/content/resume.pdf
+/jdoeth-site/web/.venv
 
 # Unity builds are deliberately NOT ignored. They are large, but they are also
 # immutable - you will never edit a .unityweb - so there is only ever one version

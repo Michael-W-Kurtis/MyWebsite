@@ -11,7 +11,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from .. import batch_spec, config, db, games as games_registry, pixelsort_spec
+from .. import batch_spec, config, db, games as games_registry, pixelsort_spec, pnglitch_spec, runner
 
 log = logging.getLogger("site.pages")
 router = APIRouter()
@@ -86,6 +86,16 @@ async def projects(request: Request):
             "status": "live",
         },
         {
+            "slug": "pnglitch",
+            "title": "PNGlitch Wrapper",
+            "tagline": "A browser front end for ucnv/pnglitch",
+            "body": "Break a PNG on purpose. Pick a wrecking method, choose how "
+                    "far the damage spreads, and read the Ruby that did it.",
+            "tags": ["Ruby", "PNG", "Glitch art"],
+            "href": "/projects/pnglitch",
+            "status": "live",
+        },
+        {
             "slug": "pixelsort",
             "title": "Pixelsort Wrapper",
             "tagline": "A browser front end for satyarth/pixelsort",
@@ -127,6 +137,15 @@ async def pixelsort_page(request: Request):
     ctx["max_dim"] = config.MAX_IMAGE_DIM
     ctx["max_mb"] = config.MAX_UPLOAD_BYTES // (1024 * 1024)
     return templates.TemplateResponse(request, "pixelsort.html", ctx)
+
+
+@router.get("/projects/pnglitch", response_class=HTMLResponse)
+async def pnglitch_page(request: Request):
+    ctx = _base_context("pnglitch")
+    ctx["spec"] = pnglitch_spec.spec_for_client()
+    ctx["max_mb"] = config.MAX_UPLOAD_BYTES // (1024 * 1024)
+    ctx["ruby"] = runner.ruby_status()
+    return templates.TemplateResponse(request, "pnglitch.html", ctx)
 
 
 @router.get("/projects/pixelsort-batch", response_class=HTMLResponse)

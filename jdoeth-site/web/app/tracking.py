@@ -28,7 +28,7 @@ for _cidr in config.TRUSTED_PROXIES:
 # Paths whose traffic is recorded. Static assets, health checks and API calls are
 # excluded so the counts mean "pages a human looked at" rather than "HTTP requests".
 TRACKED_PATHS = {"/", "/resume", "/projects", "/projects/pixelsort",
-                 "/projects/pixelsort-batch", "/games", "/stats", "/github"}
+                 "/projects/pixelsort-batch", "/projects/pnglitch", "/games", "/stats", "/github"}
 
 
 def _is_tracked(path: str) -> bool:

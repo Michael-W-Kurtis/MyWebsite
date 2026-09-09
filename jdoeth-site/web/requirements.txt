@@ -3,5 +3,10 @@ uvicorn[standard]==0.34.0
 jinja2==3.1.5
 python-multipart==0.0.20
 markdown==3.7
-pillow==12.1.1
+# Pinned below 11 deliberately. pixelsort 1.0.1 does `from PIL import PyAccess`
+# in its CLI module, and Pillow removed PyAccess in 11.0 - so any Pillow >= 11
+# makes `python -m pixelsort` fail with an ImportError while the rest of the
+# site keeps working, which is a confusing way to break. Check that pixelsort
+# has dropped PyAccess before raising this.
+pillow==10.4.0
 pixelsort==1.0.1

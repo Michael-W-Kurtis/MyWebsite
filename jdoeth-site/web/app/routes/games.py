@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.templating import Jinja2Templates
 
 from .. import config, games
+from .pages import GAMES_GROUP_TITLE
 
 log = logging.getLogger("site.games")
 router = APIRouter()
@@ -43,6 +44,7 @@ async def games_index(request: Request):
     ctx["games"] = games.list_games()
     ctx["skipped"] = games.skipped_directories()
     ctx["games_dir"] = "web/content/games"
+    ctx["group_title"] = GAMES_GROUP_TITLE
     return templates.TemplateResponse(request, "games.html", ctx)
 
 
